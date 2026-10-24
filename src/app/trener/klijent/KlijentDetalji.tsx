@@ -12,6 +12,7 @@ import type { Profil } from "@/lib/tipovi";
 import { supabase } from "@/lib/supabase/client";
 import { Biljeske } from "./Biljeske";
 import { CiljeviForma } from "./CiljeviForma";
+import { Izvoz } from "./Izvoz";
 import { NovaLozinka } from "./NovaLozinka";
 import { PlanKlijenta } from "./PlanKlijenta";
 import { PovijestTreninga } from "./PovijestTreninga";
@@ -152,7 +153,10 @@ export function KlijentDetalji() {
               </button>
             ))}
           </div>
-          <NovaLozinka klijentId={profil.id} ime={ime} />
+          <div className="flex items-center gap-2">
+            <Izvoz klijentId={profil.id} ime={ime} />
+            <NovaLozinka klijentId={profil.id} ime={ime} />
+          </div>
         </div>
       </div>
 

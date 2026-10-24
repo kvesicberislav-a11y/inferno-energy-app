@@ -21,7 +21,7 @@ export function lijepeOznake(min: number, max: number, broj = 4): number[] {
 export function kompaktno(broj: number) {
   const a = Math.abs(broj);
   if (a >= 1_000_000) return `${(broj / 1_000_000).toFixed(1).replace(".", ",")} mil.`;
-  if (a >= 10_000) return `${Math.round(broj / 1000)} tis.`;
+  if (a >= 100_000) return `${Math.round(broj / 1000)} tis.`;
   if (a >= 1000) return Math.round(broj).toLocaleString("hr-HR");
   return Number.isInteger(broj) ? String(broj) : broj.toFixed(1).replace(".", ",");
 }
