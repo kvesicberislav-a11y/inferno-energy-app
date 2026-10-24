@@ -1,0 +1,26 @@
+@import "tailwindcss";
+
+/* INFERNO ENERGY – tamna tema s narančasto-crvenim naglascima */
+@theme {
+  --color-pozadina: #0a0a0b;
+  --color-povrsina: #151518;
+  --color-povrsina-2: #1f1f24;
+  --color-rub: #2b2b32;
+  --color-tekst: #f4f4f5;
+  --color-tekst-2: #a1a1aa;
+  --color-vatra: #f97316;
+  --color-vatra-2: #ef4444;
+}
+
+@theme inline {
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+}
+
+html {
+  color-scheme: dark;
+  background: var(--color-pozadina);
+}
+
+body {
+  -webkit-tap-highlight-color: transparent;
+}
