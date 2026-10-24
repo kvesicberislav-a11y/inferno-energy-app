@@ -3,7 +3,7 @@ import { supabase } from "@/lib/supabase/client";
 const SPREMISTE = "vjezbe";
 
 /** Smanji sliku na najviše `maks` piksela po dužoj strani i spremi kao JPEG (štedi prostor). */
-export async function smanjiSliku(datoteka: File, maks = 1080): Promise<Blob> {
+export async function smanjiSliku(datoteka: File, maks = 1080, kvaliteta = 0.82): Promise<Blob> {
   const slika = await createImageBitmap(datoteka);
   const omjer = Math.min(1, maks / Math.max(slika.width, slika.height));
   const sirina = Math.round(slika.width * omjer);
@@ -19,7 +19,7 @@ export async function smanjiSliku(datoteka: File, maks = 1080): Promise<Blob> {
     platno.toBlob(
       (blob) => (blob ? rijesi(blob) : odbij(new Error("Slika se ne može obraditi."))),
       "image/jpeg",
-      0.82,
+      kvaliteta,
     ),
   );
 }

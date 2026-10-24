@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
+import { NapredakPrikaz } from "@/components/napredak/NapredakPrikaz";
 import { Prehrana } from "@/components/prehrana/Prehrana";
 import { Poruka, Ucitavanje } from "@/components/ui";
 import type { Profil } from "@/lib/tipovi";
@@ -20,6 +21,7 @@ export function KlijentDetalji() {
   const ispravan = UUID.test(id);
   const [ucitano, setUcitano] = useState<Ucitano | null>(null);
   const [verzijaCilja, setVerzijaCilja] = useState(0);
+  const [kartica, setKartica] = useState<"plan" | "prehrana" | "napredak">("plan");
 
   useEffect(() => {
     if (!ispravan) return;
@@ -63,11 +65,36 @@ export function KlijentDetalji() {
         <h1 className="text-2xl font-bold">{profil.ime || profil.email}</h1>
         <p className="text-tekst-2">{profil.email}</p>
       </div>
-      <PlanKlijenta klijentId={profil.id} />
-      <VjezbeKlijenta klijentId={profil.id} />
-      <CiljeviForma klijentId={profil.id} onSpremljeno={() => setVerzijaCilja((v) => v + 1)} />
-      <h2 className="pt-2 text-xl font-bold">Prehrana</h2>
-      <Prehrana key={verzijaCilja} klijentId={profil.id} mozeUredivati={false} />
+      <div className="grid grid-cols-3 gap-1 rounded-2xl border border-rub bg-povrsina p-1">
+        {(
+          [
+            ["plan", "Plan i ciljevi"],
+            ["prehrana", "Prehrana"],
+            ["napredak", "Napredak"],
+          ] as const
+        ).map(([kljuc, oznaka]) => (
+          <button
+            key={kljuc}
+            type="button"
+            onClick={() => setKartica(kljuc)}
+            className={`h-11 rounded-xl text-sm font-semibold transition ${
+              kartica === kljuc ? "bg-povrsina-2 text-tekst shadow" : "text-tekst-2"
+            }`}
+          >
+            {oznaka}
+          </button>
+        ))}
+      </div>
+
+      {kartica === "plan" && (
+        <>
+          <PlanKlijenta klijentId={profil.id} />
+          <VjezbeKlijenta klijentId={profil.id} />
+          <CiljeviForma klijentId={profil.id} onSpremljeno={() => setVerzijaCilja((v) => v + 1)} />
+        </>
+      )}
+      {kartica === "prehrana" && <Prehrana key={verzijaCilja} klijentId={profil.id} mozeUredivati={false} />}
+      {kartica === "napredak" && <NapredakPrikaz klijentId={profil.id} jeKlijent={false} />}
     </>
   );
 }

@@ -14,7 +14,8 @@ const STAVKE: Record<Uloga, Stavka[]> = {
   ],
   klijent: [
     { href: "/klijent", oznaka: "Prehrana", aktivnoZa: ["/klijent"] },
-    { href: "/klijent/trening", oznaka: "Trening", aktivnoZa: ["/klijent/trening"] },
+    { href: "/klijent/trening", oznaka: "Trening", aktivnoZa: ["/klijent/trening", "/klijent/vjezbe"] },
+    { href: "/klijent/napredak", oznaka: "Napredak", aktivnoZa: ["/klijent/napredak"] },
   ],
 };
 

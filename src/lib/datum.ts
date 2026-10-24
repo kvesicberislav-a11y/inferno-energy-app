@@ -28,6 +28,18 @@ export function danasZagreb(): string {
   return formatISO.format(new Date());
 }
 
+/** Kalendarski dan (po Zagrebu) za neki trenutak, npr. vrijeme registracije. */
+export function datumZagreb(iso: string): string {
+  return formatISO.format(new Date(iso));
+}
+
+/** Broj dana od `od` do `doDana` (uključivo oba). */
+export function brojDana(od: string, doDana: string): number {
+  const a = Date.UTC(+od.slice(0, 4), +od.slice(5, 7) - 1, +od.slice(8, 10));
+  const b = Date.UTC(+doDana.slice(0, 4), +doDana.slice(5, 7) - 1, +doDana.slice(8, 10));
+  return Math.round((b - a) / 86_400_000) + 1;
+}
+
 /** Trenutni sat u Zagrebu (0–23). */
 export function satZagreb(): number {
   return Number(
