@@ -4,6 +4,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/AuthProvider";
 import { Logo } from "@/components/Logo";
+import { UputaInstalacije } from "@/components/UputaInstalacije";
 import { Gumb, Kartica, Polje, Poruka, Stranica } from "@/components/ui";
 import { prevediGresku } from "@/lib/greske";
 import { supabase } from "@/lib/supabase/client";
@@ -48,6 +49,9 @@ export default function Prijava() {
       </div>
 
       {greskaAplikacije && <Poruka tip="greska">{greskaAplikacije}</Poruka>}
+
+      {/* tek kad je poznato stanje prijave (izbjegava razliku server/preglednik) */}
+      {!ucitava && !session && <UputaInstalacije />}
 
       <Kartica>
         <form onSubmit={prijaviSe} className="flex flex-col gap-4">

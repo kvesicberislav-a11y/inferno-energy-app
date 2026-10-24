@@ -1,5 +1,6 @@
 "use client";
 
+import { UputaInstalacije } from "@/components/UputaInstalacije";
 import { Zaglavlje } from "@/components/Zaglavlje";
 import { Zasticeno } from "@/components/Zasticeno";
 import { Stranica } from "@/components/ui";
@@ -10,6 +11,7 @@ export default function TrenerStranica() {
     <Zasticeno uloga="trener">
       <Stranica>
         <Zaglavlje />
+        <UputaInstalacije />
         <KlijentiIPozivnice />
       </Stranica>
     </Zasticeno>

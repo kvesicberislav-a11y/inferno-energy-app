@@ -2,6 +2,7 @@
 
 import { useAuth } from "@/components/AuthProvider";
 import { Prehrana } from "@/components/prehrana/Prehrana";
+import { UputaInstalacije } from "@/components/UputaInstalacije";
 import { Zaglavlje } from "@/components/Zaglavlje";
 import { Zasticeno } from "@/components/Zasticeno";
 import { Stranica } from "@/components/ui";
@@ -15,6 +16,7 @@ function KlijentPocetna() {
     <Stranica>
       <Zaglavlje />
       <h1 className="pt-1 text-2xl font-bold">Bok{ime ? `, ${ime}` : ""}! 👋</h1>
+      <UputaInstalacije />
       <Prehrana klijentId={profil.id} mozeUredivati />
     </Stranica>
   );
