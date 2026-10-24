@@ -33,7 +33,12 @@ yarn-error.log*
 # env files – tajne nikad ne idu na GitHub (osim praznog predloška)
 .env*
 !.env.example
+# javne vrijednosti (adresa baze i javni kljuc) – nisu tajne
+!.env.production
 .dev.vars*
+
+# supabase CLI privremene datoteke
+/supabase/.temp/
 
 # cloudflare / opennext
 /.open-next/
