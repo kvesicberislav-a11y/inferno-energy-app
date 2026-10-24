@@ -4,10 +4,11 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/AuthProvider";
 import { Logo } from "@/components/Logo";
+import { Navigacija } from "@/components/Navigacija";
 import { Gumb } from "@/components/ui";
 
 export function Zaglavlje() {
-  const { odjava } = useAuth();
+  const { odjava, profil } = useAuth();
   const router = useRouter();
   const [odjavljuje, setOdjavljuje] = useState(false);
 
@@ -18,11 +19,14 @@ export function Zaglavlje() {
   }
 
   return (
-    <header className="flex items-center justify-between gap-3">
-      <Logo />
-      <Gumb varijanta="sporedni" malen onClick={odjaviSe} disabled={odjavljuje}>
-        Odjava
-      </Gumb>
+    <header className="flex flex-col gap-4">
+      <div className="flex items-center justify-between gap-3">
+        <Logo />
+        <Gumb varijanta="sporedni" malen onClick={odjaviSe} disabled={odjavljuje}>
+          Odjava
+        </Gumb>
+      </div>
+      {profil && <Navigacija uloga={profil.uloga} />}
     </header>
   );
 }

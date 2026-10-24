@@ -1,4 +1,9 @@
-import type { ButtonHTMLAttributes, InputHTMLAttributes, ReactNode } from "react";
+import type {
+  ButtonHTMLAttributes,
+  InputHTMLAttributes,
+  ReactNode,
+  TextareaHTMLAttributes,
+} from "react";
 
 type VarijantaGumba = "glavni" | "sporedni" | "opasni";
 
@@ -41,6 +46,41 @@ export function Polje({
         {...props}
       />
     </label>
+  );
+}
+
+export function PoljeTeksta({
+  oznaka,
+  id,
+  ...props
+}: TextareaHTMLAttributes<HTMLTextAreaElement> & { oznaka: string; id: string }) {
+  return (
+    <label htmlFor={id} className="block">
+      <span className="mb-2 block text-sm font-medium text-tekst-2">{oznaka}</span>
+      <textarea
+        id={id}
+        rows={4}
+        className="w-full rounded-2xl border border-rub bg-povrsina-2 px-4 py-3 text-base text-tekst outline-none transition placeholder:text-zinc-600 focus:border-vatra focus:ring-2 focus:ring-vatra/30"
+        {...props}
+      />
+    </label>
+  );
+}
+
+/** Mali gumb-oznaka za odabir (npr. mišićna skupina). */
+export function Cip({
+  aktivan,
+  className = "",
+  ...props
+}: ButtonHTMLAttributes<HTMLButtonElement> & { aktivan: boolean }) {
+  return (
+    <button
+      type="button"
+      className={`h-10 shrink-0 rounded-xl px-3 text-sm font-semibold transition ${
+        aktivan ? "bg-vatra text-white" : "border border-rub bg-povrsina-2 text-tekst-2"
+      } ${className}`}
+      {...props}
+    />
   );
 }
 

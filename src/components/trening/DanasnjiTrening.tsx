@@ -1,0 +1,199 @@
+"use client";
+
+import { useState } from "react";
+import { Gumb, Kartica, Poruka, Ucitavanje } from "@/components/ui";
+import { SlicicaVjezbe } from "@/components/vjezbe/VideoVjezbe";
+import { danMjesec, danasZagreb, dodajDane, opisDana, ponedjeljak } from "@/lib/datum";
+import { prevediGresku } from "@/lib/greske";
+import { supabase } from "@/lib/supabase/client";
+import { DANI, DANI_KRATKO, danUTjednu, opisCilja, type PlanDan, type PlanVjezba } from "@/lib/treninzi";
+import { useTreningKlijenta } from "./useTreningKlijenta";
+import { VjezbaUnos } from "./VjezbaUnos";
+
+function nazivDana(dan: PlanDan) {
+  return dan.naziv || DANI[dan.dan_u_tjednu - 1];
+}
+
+export function DanasnjiTrening({ klijentId }: { klijentId: string }) {
+  const danas = danasZagreb();
+  const danasBroj = danUTjednu(danas);
+  const pon = ponedjeljak(danas);
+  const { ucitano, plan, treninzi, greska, osvjezi } = useTreningKlijenta(klijentId);
+  const [odabraniDanId, setOdabraniDanId] = useState<string | null>(null);
+  const [biranje, setBiranje] = useState(false);
+  const [otvorena, setOtvorena] = useState<PlanVjezba | null>(null);
+  const [zavrsava, setZavrsava] = useState(false);
+  const [greskaRadnje, setGreskaRadnje] = useState<string | null>(null);
+
+  if (!ucitano) return <Ucitavanje />;
+  if (greska) return <Poruka tip="greska">{greska}</Poruka>;
+  if (!plan) {
+    return (
+      <Kartica>
+        <p className="text-lg font-semibold">Još nemaš plan treninga.</p>
+        <p className="mt-1 text-tekst-2">Kad ti ga trener dodijeli, ovdje ćeš vidjeti današnji trening.</p>
+      </Kartica>
+    );
+  }
+
+  const planDanas = plan.dani.find((d) => d.dan_u_tjednu === danasBroj) ?? null;
+  const dan = plan.dani.find((d) => d.id === odabraniDanId) ?? planDanas;
+  const trening = dan ? (treninzi.find((t) => t.datum === danas && t.plan_dan_id === dan.id) ?? null) : null;
+
+  async function zavrsi() {
+    if (!trening) return;
+    setZavrsava(true);
+    setGreskaRadnje(null);
+    const { error } = await supabase()
+      .from("treninzi")
+      .update({ zavrsen: true, zavrseno_at: new Date().toISOString() })
+      .eq("id", trening.id);
+    setZavrsava(false);
+    if (error) return setGreskaRadnje(prevediGresku(error.message));
+    osvjezi();
+  }
+
+  const odabirTreninga = (
+    <div className="flex flex-col gap-2">
+      {plan.dani.map((d) => (
+        <button
+          key={d.id}
+          type="button"
+          onClick={() => {
+            setOdabraniDanId(d.id);
+            setBiranje(false);
+          }}
+          className="flex w-full items-center justify-between gap-3 rounded-2xl border border-rub bg-povrsina-2 px-4 py-3 text-left active:scale-[0.99]"
+        >
+          <span className="font-semibold">{nazivDana(d)}</span>
+          <span className="text-sm text-tekst-2">
+            {DANI[d.dan_u_tjednu - 1]} · {d.vjezbe.length} vježbi
+          </span>
+        </button>
+      ))}
+    </div>
+  );
+
+  return (
+    <>
+      {/* Tjedan u jednom redu */}
+      <div className="grid grid-cols-7 gap-1.5">
+        {Array.from({ length: 7 }, (_, i) => {
+          const datum = dodajDane(pon, i);
+          const imaTrening = plan.dani.some((d) => d.dan_u_tjednu === i + 1);
+          const odraden = treninzi.some((t) => t.datum === datum && (t.zavrsen || t.serije.length > 0));
+          const jeDanas = datum === danas;
+          return (
+            <div
+              key={datum}
+              className={`flex flex-col items-center gap-0.5 rounded-xl border py-2 ${
+                jeDanas ? "border-vatra bg-vatra/10" : "border-rub bg-povrsina"
+              }`}
+            >
+              <span className="text-xs text-tekst-2">{DANI_KRATKO[i]}</span>
+              <span className="text-sm font-semibold tabular-nums">{danMjesec(datum).split(".")[0]}</span>
+              <span className={`h-4 text-xs ${odraden ? "text-emerald-400" : "text-vatra"}`}>
+                {odraden ? "✓" : imaTrening ? "●" : ""}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+
+      <p className="text-sm text-tekst-2">
+        {plan.naziv} · {opisDana(danas)}
+      </p>
+
+      {!dan ? (
+        <Kartica className="flex flex-col gap-3">
+          <p className="text-xl font-bold">Danas je dan odmora 😌</p>
+          <p className="text-tekst-2">Želiš ipak trenirati? Odaberi trening:</p>
+          {odabirTreninga}
+        </Kartica>
+      ) : (
+        <>
+          <div className="flex items-end justify-between gap-3">
+            <div>
+              <p className="text-sm text-tekst-2">{dan.id === planDanas?.id ? "Današnji trening" : "Odabrani trening"}</p>
+              <h2 className="text-2xl font-bold">{nazivDana(dan)}</h2>
+            </div>
+            {plan.dani.length > 1 && (
+              <button type="button" onClick={() => setBiranje((b) => !b)} className="pb-1 text-sm font-medium text-vatra">
+                {biranje ? "Zatvori" : "Drugi trening"}
+              </button>
+            )}
+          </div>
+
+          {biranje && odabirTreninga}
+
+          {dan.vjezbe.length === 0 ? (
+            <Poruka>Trener još nije dodao vježbe za ovaj dan.</Poruka>
+          ) : (
+            <div className="flex flex-col gap-2">
+              {dan.vjezbe.map((pv, i) => {
+                const odradeno = trening?.serije.filter((s) => s.vjezba_id === pv.vjezba_id).length ?? 0;
+                const gotovo = odradeno >= pv.serije;
+                return (
+                  <button
+                    key={pv.id}
+                    type="button"
+                    onClick={() => setOtvorena(pv)}
+                    className={`flex w-full items-center gap-3 rounded-2xl border bg-povrsina p-3 text-left active:scale-[0.99] ${
+                      gotovo ? "border-emerald-500/40" : "border-rub"
+                    }`}
+                  >
+                    <SlicicaVjezbe
+                      slikaUrl={pv.vjezba?.slika_url ?? null}
+                      youtubeUrl={pv.vjezba?.youtube_url ?? null}
+                    />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate font-semibold">
+                        {i + 1}. {pv.vjezba?.naziv ?? "Vježba"}
+                      </p>
+                      <p className="truncate text-sm text-tekst-2 tabular-nums">{opisCilja(pv)}</p>
+                    </div>
+                    <span
+                      className={`shrink-0 rounded-xl px-2.5 py-1 text-sm font-semibold tabular-nums ${
+                        gotovo ? "bg-emerald-500/20 text-emerald-300" : "bg-povrsina-2 text-tekst-2"
+                      }`}
+                    >
+                      {gotovo ? "✓" : `${odradeno}/${pv.serije}`}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
+          {greskaRadnje && <Poruka tip="greska">{greskaRadnje}</Poruka>}
+
+          {trening?.zavrsen ? (
+            <Poruka tip="uspjeh">Trening je završen. Bravo! 💪</Poruka>
+          ) : trening ? (
+            <Gumb onClick={zavrsi} disabled={zavrsava}>
+              {zavrsava ? "…" : "Završi trening"}
+            </Gumb>
+          ) : (
+            dan.vjezbe.length > 0 && (
+              <p className="text-center text-sm text-tekst-2">
+                Dodirni vježbu za video i upis odrađenih serija.
+              </p>
+            )
+          )}
+        </>
+      )}
+
+      {otvorena && dan && (
+        <VjezbaUnos
+          klijentId={klijentId}
+          pv={otvorena}
+          dan={dan}
+          datum={danas}
+          trening={trening}
+          onPromjena={osvjezi}
+          onZatvori={() => setOtvorena(null)}
+        />
+      )}
+    </>
+  );
+}

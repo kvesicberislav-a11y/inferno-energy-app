@@ -8,6 +8,7 @@ import { Poruka, Ucitavanje } from "@/components/ui";
 import type { Profil } from "@/lib/tipovi";
 import { supabase } from "@/lib/supabase/client";
 import { CiljeviForma } from "./CiljeviForma";
+import { PlanKlijenta } from "./PlanKlijenta";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -61,6 +62,7 @@ export function KlijentDetalji() {
         <h1 className="text-2xl font-bold">{profil.ime || profil.email}</h1>
         <p className="text-tekst-2">{profil.email}</p>
       </div>
+      <PlanKlijenta klijentId={profil.id} />
       <CiljeviForma klijentId={profil.id} onSpremljeno={() => setVerzijaCilja((v) => v + 1)} />
       <h2 className="pt-2 text-xl font-bold">Prehrana</h2>
       <Prehrana key={verzijaCilja} klijentId={profil.id} mozeUredivati={false} />
