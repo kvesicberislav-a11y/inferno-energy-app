@@ -3,15 +3,18 @@
 -- Prije pokretanja: u Supabaseu napravite svoj račun
 -- (Authentication -> Users -> Add user -> Create new user).
 --
--- Zamijenite dvije vrijednosti u navodnicima i kliknite Run:
---   'vas@email.com'  -> e-mail s kojim ste napravili račun
---   'Vaše Ime'       -> ime koje će pisati u aplikaciji
+-- Zamijenite e-mail u navodnicima i kliknite Run.
 -- =====================================================================
 
+-- Profil za korisnike napravljene prije skripte 01 (inače ih ne bi bilo)
+insert into public.profili (id, email, ime)
+select id, coalesce(email, ''), coalesce(raw_user_meta_data ->> 'ime', '')
+from auth.users
+on conflict (id) do nothing;
+
 update public.profili
-set uloga = 'trener',
-    ime   = 'Vaše Ime'
+set uloga = 'trener'
 where email = 'vas@email.com';
 
--- Provjera: mora se pojaviti jedan red s ulogom "trener"
-select email, ime, uloga from public.profili where uloga = 'trener';
+-- Provjera: uz vaš e-mail mora pisati "trener"
+select email, uloga from public.profili;
