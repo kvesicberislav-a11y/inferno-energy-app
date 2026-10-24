@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState, type FormEvent } from "react";
+import Link from "next/link";
 import { LinkZaSlanje } from "@/components/LinkZaSlanje";
 import { Gumb, Kartica, Polje, Poruka, Ucitavanje } from "@/components/ui";
 import { formatDatum } from "@/lib/datum";
@@ -80,7 +81,7 @@ export function KlijentiIPozivnice() {
               Registrirani klijenti ({klijenti.length})
             </h2>
             {klijenti.length === 0 ? (
-              <Poruka>JoÅ¡ nema klijenata. Pozovi prvog gumbom iznad.</Poruka>
+              <Poruka>Još nema klijenata. Pozovi prvog gumbom iznad.</Poruka>
             ) : (
               klijenti.map((k) => <RedKlijenta key={k.id} klijent={k} />)
             )}
@@ -130,7 +131,7 @@ function NovaPozivnica({ naPromjenu }: { naPromjenu: () => void }) {
         <>
           <p className="text-lg font-semibold">Pozivnica za {nova.ime} je spremna</p>
           <p className="text-tekst-2">
-            PoÅ¡alji link klijentu. Vrijedi do {formatDatum(nova.vrijedi_do)} i moÅ¾e se iskoristiti
+            Pošalji link klijentu. Vrijedi do {formatDatum(nova.vrijedi_do)} i može se iskoristiti
             samo jednom.
           </p>
           <LinkZaSlanje
@@ -159,7 +160,7 @@ function NovaPozivnica({ naPromjenu }: { naPromjenu: () => void }) {
               Odustani
             </Gumb>
             <Gumb type="submit" disabled={salje || !ime.trim()}>
-              {salje ? "â€¦" : "Napravi"}
+              {salje ? "…" : "Napravi"}
             </Gumb>
           </div>
         </form>
@@ -180,7 +181,7 @@ function RedPozivnice({
   const link = prikaziLink ? linkPozivnice(pozivnica.kod) : "";
 
   async function ponisti() {
-    if (!window.confirm(`PoniÅ¡titi pozivnicu za ${pozivnica.ime}?`)) return;
+    if (!window.confirm(`Poništiti pozivnicu za ${pozivnica.ime}?`)) return;
     setBrise(true);
     await supabase().from("pozivnice").delete().eq("id", pozivnica.id);
     naPromjenu();
@@ -191,7 +192,7 @@ function RedPozivnice({
       <div>
         <p className="text-lg font-semibold">{pozivnica.ime}</p>
         <p className="text-sm text-tekst-2">
-          ÄŒeka registraciju Â· vrijedi do {formatDatum(pozivnica.vrijedi_do)}
+          Čeka registraciju · vrijedi do {formatDatum(pozivnica.vrijedi_do)}
         </p>
       </div>
       {prikaziLink ? (
@@ -199,10 +200,10 @@ function RedPozivnice({
       ) : (
         <div className="grid grid-cols-2 gap-3">
           <Gumb varijanta="sporedni" malen onClick={() => setPrikaziLink(true)}>
-            PoÅ¡alji ponovno
+            Pošalji ponovno
           </Gumb>
           <Gumb varijanta="opasni" malen onClick={ponisti} disabled={brise}>
-            PoniÅ¡ti
+            Poništi
           </Gumb>
         </div>
       )}
@@ -237,7 +238,7 @@ function RedKlijenta({ klijent }: { klijent: Profil }) {
         greska?: string;
       };
       if (!odgovor.ok || !rezultat.token) {
-        setGreska(rezultat.greska ?? "Ne mogu napraviti link. PokuÅ¡aj ponovno.");
+        setGreska(rezultat.greska ?? "Ne mogu napraviti link. Pokušaj ponovno.");
         return;
       }
       setLink(`${window.location.origin}/nova-lozinka?token=${rezultat.token}`);
@@ -252,23 +253,35 @@ function RedKlijenta({ klijent }: { klijent: Profil }) {
 
   return (
     <Kartica className="flex flex-col gap-3">
-      <div className="flex items-start justify-between gap-3">
+      <Link
+        href={`/trener/klijent?id=${klijent.id}`}
+        className="flex items-center justify-between gap-3 active:opacity-70"
+      >
         <div className="min-w-0">
           <p className="truncate text-lg font-semibold">{ime}</p>
           <p className="truncate text-sm text-tekst-2">{klijent.email}</p>
           <p className="text-sm text-tekst-2">Klijent od {formatDatum(klijent.kreirano)}</p>
         </div>
-        {!link && (
-          <Gumb varijanta="sporedni" malen onClick={novaLozinka} disabled={radi}>
-            {radi ? "â€¦" : "Nova lozinka"}
-          </Gumb>
-        )}
-      </div>
+        <span className="shrink-0 text-2xl text-tekst-2" aria-hidden="true">
+          ›
+        </span>
+      </Link>
+      {!link && (
+        <Gumb
+          varijanta="sporedni"
+          malen
+          className="self-start"
+          onClick={novaLozinka}
+          disabled={radi}
+        >
+          {radi ? "…" : "Nova lozinka"}
+        </Gumb>
+      )}
       {greska && <Poruka tip="greska">{greska}</Poruka>}
       {link && (
         <>
           <p className="text-sm text-tekst-2">
-            PoÅ¡alji ovaj link klijentu. Vrijedi ograniÄeno vrijeme i samo jednom.
+            Pošalji ovaj link klijentu. Vrijedi ograničeno vrijeme i samo jednom.
           </p>
           <LinkZaSlanje
             link={link}
