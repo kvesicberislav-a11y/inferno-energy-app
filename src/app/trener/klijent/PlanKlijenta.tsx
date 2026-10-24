@@ -9,25 +9,15 @@ import { prevediGresku } from "@/lib/greske";
 import { supabase } from "@/lib/supabase/client";
 
 type Dodjela = { planId: string; naziv: string; od: string } | null;
-type TreningSazetak = { id: string; datum: string; naziv: string; zavrsen: boolean; serija: number };
-type Podaci = { klijentId: string; dodjela: Dodjela; treninzi: TreningSazetak[] };
+type Podaci = { klijentId: string; dodjela: Dodjela };
 
 async function dohvati(klijentId: string): Promise<Podaci> {
-  const sb = supabase();
-  const [d, t] = await Promise.all([
-    sb
-      .from("dodjele_planova")
-      .select("plan_id, od_datuma, plan:planovi(naziv)")
-      .eq("klijent_id", klijentId)
-      .is("do_datuma", null)
-      .maybeSingle(),
-    sb
-      .from("treninzi")
-      .select("id, datum, naziv, zavrsen, odradjene_serije(count)")
-      .eq("klijent_id", klijentId)
-      .order("datum", { ascending: false })
-      .limit(5),
-  ]);
+  const d = await supabase()
+    .from("dodjele_planova")
+    .select("plan_id, od_datuma, plan:planovi(naziv)")
+    .eq("klijent_id", klijentId)
+    .is("do_datuma", null)
+    .maybeSingle();
   const plan = d.data?.plan as { naziv?: string } | { naziv?: string }[] | null | undefined;
   const nazivPlana = Array.isArray(plan) ? plan[0]?.naziv : plan?.naziv;
   return {
@@ -35,17 +25,10 @@ async function dohvati(klijentId: string): Promise<Podaci> {
     dodjela: d.data
       ? { planId: String(d.data.plan_id), naziv: String(nazivPlana ?? "Plan"), od: String(d.data.od_datuma) }
       : null,
-    treninzi: (t.data ?? []).map((r) => ({
-      id: String(r.id),
-      datum: String(r.datum),
-      naziv: String(r.naziv ?? ""),
-      zavrsen: Boolean(r.zavrsen),
-      serija: Number((r.odradjene_serije as { count: number }[] | null)?.[0]?.count ?? 0),
-    })),
   };
 }
 
-/** Trener dodjeljuje plan treninga klijentu i vidi zadnje treninge. */
+/** Trener dodjeljuje plan treninga klijentu. */
 export function PlanKlijenta({ klijentId }: { klijentId: string }) {
   const [podaci, setPodaci] = useState<Podaci | null>(null);
   const [verzija, setVerzija] = useState(0);
@@ -105,22 +88,6 @@ export function PlanKlijenta({ klijentId }: { klijentId: string }) {
             </Gumb>
           )}
         </div>
-
-        {spremno && podaci.treninzi.length > 0 && (
-          <div className="mt-2 flex flex-col gap-2 border-t border-rub pt-3">
-            <p className="text-sm font-medium text-tekst-2">Zadnji treninzi</p>
-            {podaci.treninzi.map((t) => (
-              <div key={t.id} className="flex items-center justify-between gap-3 text-sm">
-                <span>
-                  {puniDatum(t.datum)} · {t.naziv || "Trening"}
-                </span>
-                <span className={t.zavrsen ? "text-emerald-300" : "text-tekst-2"}>
-                  {t.serija} serija {t.zavrsen ? "✓" : ""}
-                </span>
-              </div>
-            ))}
-          </div>
-        )}
       </Kartica>
 
       {odabir && (
