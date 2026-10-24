@@ -1,6 +1,7 @@
 "use client";
 
 import { useAuth } from "@/components/AuthProvider";
+import { MojiTermini } from "@/components/raspored/MojiTermini";
 import { DanasnjiTrening } from "@/components/trening/DanasnjiTrening";
 import { Zaglavlje } from "@/components/Zaglavlje";
 import { Zasticeno } from "@/components/Zasticeno";
@@ -12,6 +13,7 @@ function KlijentTrening() {
   return (
     <Stranica>
       <Zaglavlje />
+      <MojiTermini klijentId={profil.id} />
       <DanasnjiTrening klijentId={profil.id} />
     </Stranica>
   );

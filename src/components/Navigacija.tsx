@@ -9,6 +9,7 @@ type Stavka = { href: string; oznaka: string; aktivnoZa: string[] };
 const STAVKE: Record<Uloga, Stavka[]> = {
   trener: [
     { href: "/trener", oznaka: "Klijenti", aktivnoZa: ["/trener", "/trener/klijent"] },
+    { href: "/trener/raspored", oznaka: "Raspored", aktivnoZa: ["/trener/raspored"] },
     { href: "/trener/vjezbe", oznaka: "Vježbe", aktivnoZa: ["/trener/vjezbe"] },
     { href: "/trener/planovi", oznaka: "Planovi", aktivnoZa: ["/trener/planovi", "/trener/plan"] },
   ],
@@ -35,7 +36,9 @@ export function Navigacija({ uloga }: { uloga: Uloga }) {
             key={s.href}
             href={s.href}
             aria-current={aktivno ? "page" : undefined}
-            className={`flex h-11 items-center justify-center rounded-xl text-base font-semibold transition ${
+            className={`flex h-11 items-center justify-center rounded-xl font-semibold transition ${
+              stavke.length > 3 ? "text-sm" : "text-base"
+            } ${
               aktivno ? "bg-linear-to-r from-vatra to-vatra-2 text-white" : "text-tekst-2"
             }`}
           >

@@ -25,6 +25,7 @@ export type PregledKlijenta = {
   ime: string;
   email: string;
   kreirano: string;
+  nacin: "uzivo" | "online";
   zadnjaAktivnost: string | null;
   zadnjaTezina: number | null;
   datumTezine: string | null;
@@ -63,6 +64,7 @@ async function dohvatiPodatke(): Promise<Podaci> {
       ime: String(r.ime ?? ""),
       email: String(r.email ?? ""),
       kreirano,
+      nacin: r.nacin === "online" ? ("online" as const) : ("uzivo" as const),
       zadnjaAktivnost: zadnja,
       zadnjaTezina: r.zadnja_tezina == null ? null : Number(r.zadnja_tezina),
       datumTezine: r.datum_tezine ? String(r.datum_tezine) : null,
@@ -87,6 +89,7 @@ export function KlijentiIPozivnice() {
   const [podaci, setPodaci] = useState<Podaci | null>(null);
   const [verzija, setVerzija] = useState(0);
   const [filtar, setFiltar] = useState<"svi" | "paznja">("svi");
+  const [nacin, setNacin] = useState<"svi" | "uzivo" | "online">("svi");
   const [upit, setUpit] = useState("");
 
   useEffect(() => {
@@ -111,6 +114,7 @@ export function KlijentiIPozivnice() {
     klijenti?.filter(
       (k) =>
         (filtar === "svi" || k.aktivnost.upozorenje) &&
+        (nacin === "svi" || k.nacin === nacin) &&
         (!u || `${k.ime} ${k.email}`.toLowerCase().includes(u)),
     ) ?? [];
 
@@ -147,12 +151,22 @@ export function KlijentiIPozivnice() {
               <Poruka>Još nema klijenata. Pozovi prvog gumbom iznad.</Poruka>
             ) : (
               <>
-                <div className="flex items-center gap-2">
-                  <Cip aktivan={filtar === "svi"} onClick={() => setFiltar("svi")}>
+                <div className="-mx-4 flex items-center gap-2 overflow-x-auto px-4 pb-1">
+                  <Cip aktivan={nacin === "svi"} onClick={() => setNacin("svi")}>
                     Svi ({klijenti.length})
                   </Cip>
-                  <Cip aktivan={filtar === "paznja"} onClick={() => setFiltar("paznja")}>
-                    Treba pažnju ({trebaPaznju})
+                  <Cip aktivan={nacin === "uzivo"} onClick={() => setNacin("uzivo")}>
+                    Uživo ({klijenti.filter((k) => k.nacin === "uzivo").length})
+                  </Cip>
+                  <Cip aktivan={nacin === "online"} onClick={() => setNacin("online")}>
+                    Online ({klijenti.filter((k) => k.nacin === "online").length})
+                  </Cip>
+                  <span className="mx-1 h-6 w-px shrink-0 bg-rub" aria-hidden="true" />
+                  <Cip
+                    aktivan={filtar === "paznja"}
+                    onClick={() => setFiltar(filtar === "paznja" ? "svi" : "paznja")}
+                  >
+                    ⚠ Treba pažnju ({trebaPaznju})
                   </Cip>
                 </div>
                 {klijenti.length > 5 && (
@@ -205,7 +219,10 @@ export function KarticaKlijenta({ k }: { k: PregledKlijenta }) {
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="truncate text-lg font-semibold">{k.ime || k.email}</p>
+          <p className="flex items-center gap-2">
+            <span className="truncate text-lg font-semibold">{k.ime || k.email}</span>
+            <OznakaNacina nacin={k.nacin} />
+          </p>
           <p className="mt-0.5 flex items-center gap-1.5 text-sm text-tekst-2">
             <span
               className={`inline-flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-bold text-black ${boja}`}
@@ -242,6 +259,18 @@ export function KarticaKlijenta({ k }: { k: PregledKlijenta }) {
         </div>
       </div>
     </Link>
+  );
+}
+
+export function OznakaNacina({ nacin }: { nacin: "uzivo" | "online" }) {
+  return (
+    <span
+      className={`shrink-0 rounded-lg px-2 py-0.5 text-xs font-semibold ${
+        nacin === "online" ? "bg-sky-400/15 text-sky-200" : "bg-vatra/15 text-orange-200"
+      }`}
+    >
+      {nacin === "online" ? "Online" : "Uživo"}
+    </span>
   );
 }
 

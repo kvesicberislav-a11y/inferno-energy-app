@@ -15,6 +15,7 @@ import { CiljeviForma } from "./CiljeviForma";
 import { NovaLozinka } from "./NovaLozinka";
 import { PlanKlijenta } from "./PlanKlijenta";
 import { PovijestTreninga } from "./PovijestTreninga";
+import { TerminiKlijenta } from "./TerminiKlijenta";
 import { VjezbeKlijenta } from "./VjezbeKlijenta";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -64,6 +65,12 @@ export function KlijentDetalji() {
       aktivno = false;
     };
   }, [id, ispravan]);
+
+  async function promijeniNacin(novi: "uzivo" | "online") {
+    if (!ucitano?.profil || ucitano.profil.nacin === novi) return;
+    const { error } = await supabase().rpc("postavi_nacin", { p_klijent: ucitano.profil.id, p_nacin: novi });
+    if (!error) setUcitano({ ...ucitano, profil: { ...ucitano.profil, nacin: novi } });
+  }
 
   function promijeniKarticu(k: Kartica) {
     setKartica(k);
@@ -120,7 +127,33 @@ export function KlijentDetalji() {
             {a.opis}
           </div>
         )}
-        <NovaLozinka klijentId={profil.id} ime={ime} />
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="grid grid-cols-2 gap-1 rounded-2xl border border-rub bg-povrsina p-1" role="group" aria-label="Način rada">
+            {(
+              [
+                ["uzivo", "Uživo"],
+                ["online", "Online"],
+              ] as const
+            ).map(([k, o]) => (
+              <button
+                key={k}
+                type="button"
+                onClick={() => promijeniNacin(k)}
+                aria-pressed={(profil.nacin ?? "uzivo") === k}
+                className={`h-10 rounded-xl px-4 text-sm font-semibold transition ${
+                  (profil.nacin ?? "uzivo") === k
+                    ? k === "online"
+                      ? "bg-sky-500/25 text-sky-100"
+                      : "bg-vatra/25 text-orange-100"
+                    : "text-tekst-2"
+                }`}
+              >
+                {o}
+              </button>
+            ))}
+          </div>
+          <NovaLozinka klijentId={profil.id} ime={ime} />
+        </div>
       </div>
 
       <div className="grid grid-cols-4 gap-1 rounded-2xl border border-rub bg-povrsina p-1">
@@ -140,6 +173,11 @@ export function KlijentDetalji() {
 
       {kartica === "treninzi" && (
         <>
+          {(profil.nacin ?? "uzivo") === "uzivo" ? (
+            <TerminiKlijenta klijentId={profil.id} ime={ime} />
+          ) : (
+            <p className="text-sm text-tekst-2">Online klijent – termini s tobom vode se samo za klijente uživo.</p>
+          )}
           <PlanKlijenta klijentId={profil.id} />
           <PovijestTreninga klijentId={profil.id} />
           <VjezbeKlijenta klijentId={profil.id} />

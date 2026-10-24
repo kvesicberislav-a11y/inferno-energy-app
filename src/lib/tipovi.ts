@@ -7,6 +7,8 @@ export type Profil = {
   uloga: Uloga;
   aktivan: boolean;
   kreirano: string;
+  /** klijent: trenira uživo s trenerom ili online */
+  nacin?: "uzivo" | "online";
 };
 
 export type Pozivnica = {
