@@ -9,6 +9,7 @@ import type { Profil } from "@/lib/tipovi";
 import { supabase } from "@/lib/supabase/client";
 import { CiljeviForma } from "./CiljeviForma";
 import { PlanKlijenta } from "./PlanKlijenta";
+import { VjezbeKlijenta } from "./VjezbeKlijenta";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -63,6 +64,7 @@ export function KlijentDetalji() {
         <p className="text-tekst-2">{profil.email}</p>
       </div>
       <PlanKlijenta klijentId={profil.id} />
+      <VjezbeKlijenta klijentId={profil.id} />
       <CiljeviForma klijentId={profil.id} onSpremljeno={() => setVerzijaCilja((v) => v + 1)} />
       <h2 className="pt-2 text-xl font-bold">Prehrana</h2>
       <Prehrana key={verzijaCilja} klijentId={profil.id} mozeUredivati={false} />

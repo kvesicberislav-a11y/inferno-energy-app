@@ -5,31 +5,48 @@ import { prevediGresku } from "@/lib/greske";
 import { supabase } from "@/lib/supabase/client";
 import { uVjezbu, type Vjezba } from "@/lib/treninzi";
 
-/** Cijela biblioteka vježbi, abecedno. */
-export function useVjezbe() {
-  const [stanje, setStanje] = useState<{ vjezbe: Vjezba[]; greska: string | null } | null>(null);
+/**
+ * Vježbe, abecedno.
+ * - "biblioteka": samo zajednička biblioteka trenera
+ * - "moje": samo vlastite vježbe zadanog klijenta
+ * - "sve": sve što prijavljeni korisnik smije vidjeti (biblioteka + svoje)
+ */
+export type OpsegVjezbi = { vrsta: "biblioteka" } | { vrsta: "moje"; klijentId: string } | { vrsta: "sve" };
+
+export function useVjezbe(opseg: OpsegVjezbi = { vrsta: "biblioteka" }) {
+  const [stanje, setStanje] = useState<{ kljuc: string; vjezbe: Vjezba[]; greska: string | null } | null>(
+    null,
+  );
   const [verzija, setVerzija] = useState(0);
+  const vrsta = opseg.vrsta;
+  const klijentId = opseg.vrsta === "moje" ? opseg.klijentId : "";
+  const kljuc = `${vrsta}|${klijentId}`;
 
   useEffect(() => {
     let aktivno = true;
-    supabase()
-      .from("vjezbe")
-      .select("*")
-      .order("naziv")
-      .then(({ data, error }) => {
-        if (!aktivno) return;
-        setStanje({
-          vjezbe: (data ?? []).map(uVjezbu),
-          greska: error ? prevediGresku(error.message) : null,
-        });
+    let upit = supabase().from("vjezbe").select("*").order("naziv");
+    if (vrsta === "biblioteka") upit = upit.is("vlasnik_id", null);
+    if (vrsta === "moje") upit = upit.eq("vlasnik_id", klijentId);
+    upit.then(({ data, error }) => {
+      if (!aktivno) return;
+      setStanje({
+        kljuc,
+        vjezbe: (data ?? []).map(uVjezbu),
+        greska: error ? prevediGresku(error.message) : null,
       });
+    });
     return () => {
       aktivno = false;
     };
-  }, [verzija]);
+  }, [vrsta, klijentId, kljuc, verzija]);
 
   const osvjezi = useCallback(() => setVerzija((v) => v + 1), []);
-  return { vjezbe: stanje?.vjezbe ?? null, greska: stanje?.greska ?? null, osvjezi };
+  const spremno = stanje?.kljuc === kljuc;
+  return {
+    vjezbe: spremno ? stanje.vjezbe : null,
+    greska: spremno ? stanje.greska : null,
+    osvjezi,
+  };
 }
 
 /** Filtriranje po tekstu i mišićnoj skupini (bez obzira na kvačice i velika slova). */

@@ -3,27 +3,45 @@
 import { useState } from "react";
 import Link from "next/link";
 import { Ploca } from "@/components/Ploca";
-import { Cip, Poruka, Ucitavanje } from "@/components/ui";
+import { Cip, Gumb, Poruka, Ucitavanje } from "@/components/ui";
 import { MISICNE_SKUPINE, type Vjezba } from "@/lib/treninzi";
 import { SlicicaVjezbe } from "./VideoVjezbe";
-import { filtrirajVjezbe, useVjezbe } from "./useVjezbe";
+import { filtrirajVjezbe, useVjezbe, type OpsegVjezbi } from "./useVjezbe";
 
-/** Odabir vježbe iz biblioteke (za plan treninga). */
+/** Odabir vježbe (trener: iz biblioteke za plan; klijent: za zamjenu). */
 export function OdabirVjezbe({
+  naslov = "Odaberi vježbu",
+  opseg = { vrsta: "biblioteka" },
+  iskljuci = [],
+  onNova,
   onOdabir,
   onZatvori,
 }: {
+  naslov?: string;
+  opseg?: OpsegVjezbi;
+  iskljuci?: string[];
+  onNova?: () => void;
   onOdabir: (v: Vjezba) => void;
   onZatvori: () => void;
 }) {
-  const { vjezbe, greska } = useVjezbe();
+  const { vjezbe, greska } = useVjezbe(opseg);
   const [upit, setUpit] = useState("");
   const [skupina, setSkupina] = useState<string | null>(null);
-  const prikazane = vjezbe ? filtrirajVjezbe(vjezbe, upit, skupina) : [];
+  const prikazane = vjezbe
+    ? filtrirajVjezbe(vjezbe, upit, skupina)
+        .filter((v) => !iskljuci.includes(v.id))
+        // vlastite vježbe prve
+        .sort((a, b) => Number(b.vlasnik_id !== null) - Number(a.vlasnik_id !== null))
+    : [];
 
   return (
-    <Ploca naslov="Odaberi vježbu" onZatvori={onZatvori}>
+    <Ploca naslov={naslov} onZatvori={onZatvori}>
       <div className="flex flex-col gap-3">
+        {onNova && (
+          <Gumb type="button" varijanta="sporedni" onClick={onNova}>
+            + Nova vlastita vježba
+          </Gumb>
+        )}
         <input
           type="search"
           aria-label="Pretraži vježbe"
@@ -46,7 +64,7 @@ export function OdabirVjezbe({
         {greska && <Poruka tip="greska">{greska}</Poruka>}
         {vjezbe === null ? (
           !greska && <Ucitavanje />
-        ) : vjezbe.length === 0 ? (
+        ) : vjezbe.length === 0 && opseg.vrsta === "biblioteka" ? (
           <Poruka>
             Biblioteka vježbi je prazna.{" "}
             <Link href="/trener/vjezbe" className="font-semibold text-vatra">
@@ -67,7 +85,10 @@ export function OdabirVjezbe({
                 <SlicicaVjezbe slikaUrl={v.slika_url} youtubeUrl={v.youtube_url} className="h-12 w-12" />
                 <div className="min-w-0">
                   <p className="truncate font-semibold">{v.naziv}</p>
-                  <p className="text-sm text-tekst-2">{v.misicna_skupina}</p>
+                  <p className="text-sm text-tekst-2">
+                    {v.misicna_skupina}
+                    {v.vlasnik_id ? " · moja vježba" : ""}
+                  </p>
                 </div>
               </button>
             ))}

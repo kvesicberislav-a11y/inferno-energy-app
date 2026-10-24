@@ -27,6 +27,8 @@ export type Vjezba = {
   opis: string;
   youtube_url: string | null;
   slika_url: string | null;
+  /** null = zajednička biblioteka; inače vlastita vježba tog klijenta */
+  vlasnik_id: string | null;
 };
 
 export type PlanVjezba = {
@@ -61,6 +63,7 @@ export type Serija = {
   id: string;
   trening_id: string;
   vjezba_id: string;
+  plan_vjezba_id: string | null;
   redni_broj: number;
   ponavljanja: number;
   kg: number;
@@ -88,6 +91,7 @@ export function uVjezbu(r: Red): Vjezba {
     opis: String(r.opis ?? ""),
     youtube_url: r.youtube_url ? String(r.youtube_url) : null,
     slika_url: r.slika_url ? String(r.slika_url) : null,
+    vlasnik_id: r.vlasnik_id ? String(r.vlasnik_id) : null,
   };
 }
 
@@ -131,6 +135,7 @@ export function uSeriju(r: Red): Serija {
     id: String(r.id),
     trening_id: String(r.trening_id),
     vjezba_id: String(r.vjezba_id),
+    plan_vjezba_id: r.plan_vjezba_id ? String(r.plan_vjezba_id) : null,
     redni_broj: Number(r.redni_broj),
     ponavljanja: Number(r.ponavljanja),
     kg: Number(r.kg),
@@ -146,6 +151,13 @@ export function uTrening(r: Red): Trening {
     zavrsen: Boolean(r.zavrsen),
     serije: ((r.serije as Red[] | undefined) ?? []).map(uSeriju),
   };
+}
+
+/** Pripada li serija ovom mjestu u planu i ovoj (stvarno izvedenoj) vježbi? */
+export function serijaZaMjesto(s: Serija, pv: PlanVjezba, izvedenaVjezbaId: string) {
+  if (s.vjezba_id !== izvedenaVjezbaId) return false;
+  // Starije serije (prije zamjena) nemaju plan_vjezba_id.
+  return s.plan_vjezba_id === pv.id || (s.plan_vjezba_id === null && s.vjezba_id === pv.vjezba_id);
 }
 
 /** "2026-10-24" -> 6 (subota); 1 = ponedjeljak … 7 = nedjelja */

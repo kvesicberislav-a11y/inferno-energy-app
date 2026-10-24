@@ -6,7 +6,16 @@ import { SlicicaVjezbe } from "@/components/vjezbe/VideoVjezbe";
 import { danMjesec, danasZagreb, dodajDane, opisDana, ponedjeljak } from "@/lib/datum";
 import { prevediGresku } from "@/lib/greske";
 import { supabase } from "@/lib/supabase/client";
-import { DANI, DANI_KRATKO, danUTjednu, opisCilja, type PlanDan, type PlanVjezba } from "@/lib/treninzi";
+import Link from "next/link";
+import {
+  DANI,
+  DANI_KRATKO,
+  danUTjednu,
+  opisCilja,
+  serijaZaMjesto,
+  type PlanDan,
+  type PlanVjezba,
+} from "@/lib/treninzi";
 import { useTreningKlijenta } from "./useTreningKlijenta";
 import { VjezbaUnos } from "./VjezbaUnos";
 
@@ -18,21 +27,30 @@ export function DanasnjiTrening({ klijentId }: { klijentId: string }) {
   const danas = danasZagreb();
   const danasBroj = danUTjednu(danas);
   const pon = ponedjeljak(danas);
-  const { ucitano, plan, treninzi, greska, osvjezi } = useTreningKlijenta(klijentId);
+  const { ucitano, plan, treninzi, zamjene, greska, osvjezi } = useTreningKlijenta(klijentId);
   const [odabraniDanId, setOdabraniDanId] = useState<string | null>(null);
   const [biranje, setBiranje] = useState(false);
   const [otvorena, setOtvorena] = useState<PlanVjezba | null>(null);
   const [zavrsava, setZavrsava] = useState(false);
   const [greskaRadnje, setGreskaRadnje] = useState<string | null>(null);
 
+  const mojeVjezbeLink = (
+    <Link href="/klijent/vjezbe" className="shrink-0 text-sm font-semibold text-vatra">
+      Moje vježbe ›
+    </Link>
+  );
+
   if (!ucitano) return <Ucitavanje />;
   if (greska) return <Poruka tip="greska">{greska}</Poruka>;
   if (!plan) {
     return (
-      <Kartica>
-        <p className="text-lg font-semibold">Još nemaš plan treninga.</p>
-        <p className="mt-1 text-tekst-2">Kad ti ga trener dodijeli, ovdje ćeš vidjeti današnji trening.</p>
-      </Kartica>
+      <>
+        <Kartica>
+          <p className="text-lg font-semibold">Još nemaš plan treninga.</p>
+          <p className="mt-1 text-tekst-2">Kad ti ga trener dodijeli, ovdje ćeš vidjeti današnji trening.</p>
+        </Kartica>
+        <div className="self-end">{mojeVjezbeLink}</div>
+      </>
     );
   }
 
@@ -100,9 +118,12 @@ export function DanasnjiTrening({ klijentId }: { klijentId: string }) {
         })}
       </div>
 
-      <p className="text-sm text-tekst-2">
-        {plan.naziv} · {opisDana(danas)}
-      </p>
+      <div className="flex items-center justify-between gap-3">
+        <p className="min-w-0 truncate text-sm text-tekst-2">
+          {plan.naziv} · {opisDana(danas)}
+        </p>
+        {mojeVjezbeLink}
+      </div>
 
       {!dan ? (
         <Kartica className="flex flex-col gap-3">
@@ -131,7 +152,10 @@ export function DanasnjiTrening({ klijentId }: { klijentId: string }) {
           ) : (
             <div className="flex flex-col gap-2">
               {dan.vjezbe.map((pv, i) => {
-                const odradeno = trening?.serije.filter((s) => s.vjezba_id === pv.vjezba_id).length ?? 0;
+                const zamjena = zamjene[pv.id] ?? null;
+                const vjezba = zamjena ?? pv.vjezba;
+                const odradeno =
+                  trening?.serije.filter((s) => serijaZaMjesto(s, pv, zamjena?.id ?? pv.vjezba_id)).length ?? 0;
                 const gotovo = odradeno >= pv.serije;
                 return (
                   <button
@@ -143,14 +167,21 @@ export function DanasnjiTrening({ klijentId }: { klijentId: string }) {
                     }`}
                   >
                     <SlicicaVjezbe
-                      slikaUrl={pv.vjezba?.slika_url ?? null}
-                      youtubeUrl={pv.vjezba?.youtube_url ?? null}
+                      slikaUrl={vjezba?.slika_url ?? null}
+                      youtubeUrl={vjezba?.youtube_url ?? null}
                     />
                     <div className="min-w-0 flex-1">
                       <p className="truncate font-semibold">
-                        {i + 1}. {pv.vjezba?.naziv ?? "Vježba"}
+                        {i + 1}. {vjezba?.naziv ?? "Vježba"}
                       </p>
-                      <p className="truncate text-sm text-tekst-2 tabular-nums">{opisCilja(pv)}</p>
+                      <p className="truncate text-sm text-tekst-2 tabular-nums">
+                        {opisCilja(zamjena ? { ...pv, kg: null } : pv)}
+                      </p>
+                      {zamjena && (
+                        <p className="truncate text-xs text-amber-200">
+                          umjesto: {pv.vjezba?.naziv ?? "vježba iz plana"}
+                        </p>
+                      )}
                     </div>
                     <span
                       className={`shrink-0 rounded-xl px-2.5 py-1 text-sm font-semibold tabular-nums ${
@@ -185,8 +216,10 @@ export function DanasnjiTrening({ klijentId }: { klijentId: string }) {
 
       {otvorena && dan && (
         <VjezbaUnos
+          key={`${otvorena.id}|${zamjene[otvorena.id]?.id ?? ""}`}
           klijentId={klijentId}
           pv={otvorena}
+          zamjena={zamjene[otvorena.id] ?? null}
           dan={dan}
           datum={danas}
           trening={trening}

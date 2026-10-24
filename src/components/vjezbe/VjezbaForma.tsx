@@ -6,19 +6,26 @@ import { Cip, Gumb, Polje, PoljeTeksta, Poruka } from "@/components/ui";
 import { prevediGresku } from "@/lib/greske";
 import { obrisiSlikuVjezbe, ucitajSlikuVjezbe } from "@/lib/slike";
 import { supabase } from "@/lib/supabase/client";
-import { MISICNE_SKUPINE, jeGreskaVeze, youtubeId, type Vjezba } from "@/lib/treninzi";
+import { MISICNE_SKUPINE, jeGreskaVeze, uVjezbu, youtubeId, type Vjezba } from "@/lib/treninzi";
 import { SlicicaVjezbe } from "./VideoVjezbe";
 
-/** Trener dodaje ili uređuje vježbu u biblioteci. */
+/**
+ * Dodavanje ili uređivanje vježbe.
+ * - trener (bez `vlasnikId`): zajednička biblioteka, sa slikom
+ * - klijent (`vlasnikId` = njegov id): vlastita vježba, bez slike
+ */
 export function VjezbaForma({
   postojeca,
+  vlasnikId = null,
   onZatvori,
   onSpremljeno,
 }: {
   postojeca: Vjezba | null;
+  vlasnikId?: string | null;
   onZatvori: () => void;
-  onSpremljeno: () => void;
+  onSpremljeno: (vjezba: Vjezba | null) => void;
 }) {
+  const zaKlijenta = vlasnikId !== null;
   const [naziv, setNaziv] = useState(postojeca?.naziv ?? "");
   const [skupina, setSkupina] = useState(postojeca?.misicna_skupina ?? "");
   const [opis, setOpis] = useState(postojeca?.opis ?? "");
@@ -57,8 +64,8 @@ export function VjezbaForma({
 
     setSalje(true);
     try {
-      let konacnaSlika = slikaUrl;
-      if (novaSlika) konacnaSlika = await ucitajSlikuVjezbe(novaSlika);
+      let konacnaSlika = zaKlijenta ? null : slikaUrl;
+      if (novaSlika && !zaKlijenta) konacnaSlika = await ucitajSlikuVjezbe(novaSlika);
 
       const podaci = {
         naziv: naziv.trim().slice(0, 80),
@@ -68,16 +75,20 @@ export function VjezbaForma({
         slika_url: konacnaSlika,
       };
       const sb = supabase();
-      const { error } = postojeca
-        ? await sb.from("vjezbe").update(podaci).eq("id", postojeca.id)
-        : await sb.from("vjezbe").insert(podaci);
+      const { data, error } = postojeca
+        ? await sb.from("vjezbe").update(podaci).eq("id", postojeca.id).select().single()
+        : await sb
+            .from("vjezbe")
+            .insert({ ...podaci, vlasnik_id: vlasnikId })
+            .select()
+            .single();
       if (error) throw new Error(error.message);
 
       // Stara slika više ne treba.
       if (postojeca?.slika_url && postojeca.slika_url !== konacnaSlika) {
         await obrisiSlikuVjezbe(postojeca.slika_url);
       }
-      onSpremljeno();
+      onSpremljeno(data ? uVjezbu(data) : null);
     } catch (err) {
       setGreska(prevediGresku(err instanceof Error ? err.message : null));
     } finally {
@@ -98,7 +109,7 @@ export function VjezbaForma({
       );
     }
     await obrisiSlikuVjezbe(postojeca.slika_url);
-    onSpremljeno();
+    onSpremljeno(null);
   }
 
   const prikazSlike = pregledSlike ?? slikaUrl;
@@ -129,7 +140,11 @@ export function VjezbaForma({
         <PoljeTeksta
           id="vjezba-opis"
           oznaka="Kratki opis izvedbe"
-          placeholder="Stopala u širini ramena, leđa ravna…"
+          placeholder={
+            zaKlijenta
+              ? "npr. sprava u mojoj teretani, postavke sjedala…"
+              : "Stopala u širini ramena, leđa ravna…"
+          }
           maxLength={2000}
           value={opis}
           onChange={(e) => setOpis(e.target.value)}
@@ -153,6 +168,7 @@ export function VjezbaForma({
           )}
         </div>
 
+        {!zaKlijenta && (
         <div className="flex flex-col gap-2">
           <span className="text-sm font-medium text-tekst-2">Slika (neobavezno)</span>
           <div className="flex items-center gap-3">
@@ -179,6 +195,7 @@ export function VjezbaForma({
             }}
           />
         </div>
+        )}
 
         {greska && <Poruka tip="greska">{greska}</Poruka>}
 

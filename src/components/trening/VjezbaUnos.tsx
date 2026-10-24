@@ -3,7 +3,9 @@
 import { useEffect, useState } from "react";
 import { Ploca } from "@/components/Ploca";
 import { Gumb, Poruka } from "@/components/ui";
+import { OdabirVjezbe } from "@/components/vjezbe/OdabirVjezbe";
 import { VideoVjezbe } from "@/components/vjezbe/VideoVjezbe";
+import { VjezbaForma } from "@/components/vjezbe/VjezbaForma";
 import { prevediGresku } from "@/lib/greske";
 import { formatG, parsirajBroj } from "@/lib/makroi";
 import { supabase } from "@/lib/supabase/client";
@@ -11,19 +13,22 @@ import {
   DANI,
   opisCilja,
   prviBroj,
+  serijaZaMjesto,
   uSeriju,
   type PlanDan,
   type PlanVjezba,
   type Serija,
   type Trening,
+  type Vjezba,
 } from "@/lib/treninzi";
 
 type Red = { redni: number; ponavljanja: string; kg: string; spremljeno: Serija | null };
 
-function pocetniRedovi(pv: PlanVjezba, spremljene: Serija[]): Red[] {
+function pocetniRedovi(pv: PlanVjezba, spremljene: Serija[], jeZamjena: boolean): Red[] {
   const broj = Math.max(pv.serije, spremljene.reduce((m, s) => Math.max(m, s.redni_broj), 0));
   const ponCilj = /^\s*\d+\s*$/.test(pv.ponavljanja) ? String(prviBroj(pv.ponavljanja)) : "";
-  const kgCilj = pv.kg !== null && pv.kg > 0 ? formatG(pv.kg) : "";
+  // Kilaža iz plana ne vrijedi za zamjensku spravu.
+  const kgCilj = !jeZamjena && pv.kg !== null && pv.kg > 0 ? formatG(pv.kg) : "";
   return Array.from({ length: broj }, (_, i) => {
     const s = spremljene.find((x) => x.redni_broj === i + 1) ?? null;
     return {
@@ -40,10 +45,11 @@ function jePromijenjen(r: Red) {
   return r.ponavljanja !== String(r.spremljeno.ponavljanja) || r.kg !== formatG(r.spremljeno.kg);
 }
 
-/** Vježba iz današnjeg treninga: video, opis i unos odrađenih serija. */
+/** Vježba iz današnjeg treninga: video, opis, unos serija i zamjena vježbe. */
 export function VjezbaUnos({
   klijentId,
   pv,
+  zamjena,
   dan,
   datum,
   trening,
@@ -52,22 +58,34 @@ export function VjezbaUnos({
 }: {
   klijentId: string;
   pv: PlanVjezba;
+  /** vježba kojom je klijent zamijenio onu iz plana (ili null) */
+  zamjena: Vjezba | null;
   dan: PlanDan;
   datum: string;
   trening: Trening | null;
   onPromjena: () => void;
   onZatvori: () => void;
 }) {
-  const vjezba = pv.vjezba;
+  const izvorna = pv.vjezba;
+  const vjezba = zamjena ?? izvorna;
+  const vjezbaId = zamjena?.id ?? pv.vjezba_id;
+
   const [treningId, setTreningId] = useState<string | null>(trening?.id ?? null);
   // Trening kakav je bio pri otvaranju – "prošli put" se računa samo jednom.
   const [pocetniTreningId] = useState<string | null>(trening?.id ?? null);
   const [redovi, setRedovi] = useState<Red[]>(() =>
-    pocetniRedovi(pv, (trening?.serije ?? []).filter((s) => s.vjezba_id === pv.vjezba_id)),
+    pocetniRedovi(
+      pv,
+      (trening?.serije ?? []).filter((s) => serijaZaMjesto(s, pv, zamjena?.id ?? pv.vjezba_id)),
+      zamjena !== null,
+    ),
   );
   const [prosliPut, setProsliPut] = useState<Serija[] | null>(null);
   const [radi, setRadi] = useState<number | null>(null);
   const [greska, setGreska] = useState<string | null>(null);
+  const [biranjeZamjene, setBiranjeZamjene] = useState(false);
+  const [novaVlastita, setNovaVlastita] = useState(false);
+  const [mijenja, setMijenja] = useState(false);
 
   // Što je klijent odradio prošli put na ovoj vježbi (za usporedbu i predložak).
   useEffect(() => {
@@ -76,7 +94,7 @@ export function VjezbaUnos({
       .from("odradjene_serije")
       .select("*")
       .eq("klijent_id", klijentId)
-      .eq("vjezba_id", pv.vjezba_id)
+      .eq("vjezba_id", vjezbaId)
       .order("kreirano", { ascending: false })
       .limit(60)
       .then(({ data }) => {
@@ -101,7 +119,7 @@ export function VjezbaUnos({
     return () => {
       aktivno = false;
     };
-  }, [klijentId, pv.vjezba_id, pocetniTreningId]);
+  }, [klijentId, vjezbaId, pocetniTreningId]);
 
   function promijeni(i: number, polje: "ponavljanja" | "kg", vrijednost: string) {
     setRedovi((rr) => rr.map((r, j) => (j === i ? { ...r, [polje]: vrijednost } : r)));
@@ -146,7 +164,8 @@ export function VjezbaUnos({
           {
             klijent_id: klijentId,
             trening_id: tId,
-            vjezba_id: pv.vjezba_id,
+            vjezba_id: vjezbaId,
+            plan_vjezba_id: pv.id,
             redni_broj: r.redni,
             ponavljanja,
             kg,
@@ -158,7 +177,9 @@ export function VjezbaUnos({
       if (error || !data) throw new Error(error?.message ?? "Serija nije spremljena.");
       const s = uSeriju(data);
       setRedovi((rr) =>
-        rr.map((x, j) => (j === i ? { ...x, ponavljanja: String(s.ponavljanja), kg: formatG(s.kg), spremljeno: s } : x)),
+        rr.map((x, j) =>
+          j === i ? { ...x, ponavljanja: String(s.ponavljanja), kg: formatG(s.kg), spremljeno: s } : x,
+        ),
       );
       onPromjena();
     } catch (err) {
@@ -192,11 +213,47 @@ export function VjezbaUnos({
     });
   }
 
+  async function postaviZamjenu(v: Vjezba) {
+    setBiranjeZamjene(false);
+    setNovaVlastita(false);
+    setGreska(null);
+    setMijenja(true);
+    const { error } = await supabase()
+      .from("zamjene_vjezbi")
+      .upsert(
+        { klijent_id: klijentId, plan_vjezba_id: pv.id, vjezba_id: v.id },
+        { onConflict: "klijent_id,plan_vjezba_id" },
+      );
+    setMijenja(false);
+    if (error) return setGreska(prevediGresku(error.message));
+    onPromjena();
+  }
+
+  async function vratiIzvornu() {
+    setGreska(null);
+    setMijenja(true);
+    const { error } = await supabase()
+      .from("zamjene_vjezbi")
+      .delete()
+      .eq("klijent_id", klijentId)
+      .eq("plan_vjezba_id", pv.id);
+    setMijenja(false);
+    if (error) return setGreska(prevediGresku(error.message));
+    onPromjena();
+  }
+
   const spremljenih = redovi.filter((r) => r.spremljeno).length;
+  const mozeMijenjati = spremljenih === 0 && !mijenja;
 
   return (
     <Ploca naslov={vjezba?.naziv ?? "Vježba"} onZatvori={onZatvori}>
       <div className="flex flex-col gap-4">
+        {zamjena && (
+          <div className="rounded-2xl border border-amber-400/30 bg-amber-400/10 px-4 py-3 text-sm text-amber-100">
+            Zamjena za <strong>{izvorna?.naziv ?? "vježbu iz plana"}</strong> (nemaš tu spravu)
+          </div>
+        )}
+
         <VideoVjezbe url={vjezba?.youtube_url ?? null} naslov={vjezba?.naziv ?? "Video"} />
         {vjezba?.slika_url && !vjezba.youtube_url && (
           // eslint-disable-next-line @next/next/no-img-element -- slika je već smanjena pri učitavanju
@@ -205,7 +262,9 @@ export function VjezbaUnos({
 
         <div className="rounded-2xl bg-povrsina-2 px-4 py-3">
           <p className="text-sm text-tekst-2">Cilj</p>
-          <p className="text-xl font-bold tabular-nums">{opisCilja(pv)}</p>
+          <p className="text-xl font-bold tabular-nums">
+            {opisCilja(zamjena ? { ...pv, kg: null } : pv)}
+          </p>
           {pv.napomena && <p className="mt-1 text-sm text-amber-200">{pv.napomena}</p>}
           {prosliPut && prosliPut.length > 0 && (
             <p className="mt-2 text-sm text-tekst-2 tabular-nums">
@@ -291,7 +350,55 @@ export function VjezbaUnos({
         <Gumb type="button" onClick={onZatvori}>
           Gotovo
         </Gumb>
+
+        <div className="flex flex-col gap-2 border-t border-rub pt-4">
+          {zamjena ? (
+            <Gumb type="button" varijanta="sporedni" onClick={vratiIzvornu} disabled={!mozeMijenjati}>
+              Vrati vježbu iz plana
+            </Gumb>
+          ) : (
+            <Gumb
+              type="button"
+              varijanta="sporedni"
+              onClick={() => setBiranjeZamjene(true)}
+              disabled={!mozeMijenjati}
+            >
+              Nemam ovu spravu – zamijeni vježbu
+            </Gumb>
+          )}
+          {spremljenih > 0 && (
+            <p className="text-center text-xs text-tekst-2">
+              Zamjena je moguća prije upisa serija (ili obriši upisane serije).
+            </p>
+          )}
+        </div>
       </div>
+
+      {biranjeZamjene && (
+        <OdabirVjezbe
+          naslov="Zamijeni vježbu"
+          opseg={{ vrsta: "sve" }}
+          iskljuci={[pv.vjezba_id, vjezbaId]}
+          onNova={() => {
+            setBiranjeZamjene(false);
+            setNovaVlastita(true);
+          }}
+          onOdabir={postaviZamjenu}
+          onZatvori={() => setBiranjeZamjene(false)}
+        />
+      )}
+
+      {novaVlastita && (
+        <VjezbaForma
+          postojeca={null}
+          vlasnikId={klijentId}
+          onZatvori={() => setNovaVlastita(false)}
+          onSpremljeno={(v) => {
+            if (v) postaviZamjenu(v);
+            else setNovaVlastita(false);
+          }}
+        />
+      )}
     </Ploca>
   );
 }
