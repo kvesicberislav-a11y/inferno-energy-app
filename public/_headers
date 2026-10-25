@@ -1,6 +1,10 @@
 /_next/static/*
   Cache-Control: public,max-age=31536000,immutable
 
+/zxing/*
+  Cache-Control: public,max-age=31536000,immutable
+  Content-Type: application/wasm
+
 /sw.js
   Cache-Control: no-cache, no-store, must-revalidate
   Content-Type: application/javascript; charset=utf-8

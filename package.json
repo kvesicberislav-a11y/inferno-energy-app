@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "prebuild": "node scripts/zxing-wasm.mjs",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
@@ -15,6 +16,7 @@
   "dependencies": {
     "@opennextjs/cloudflare": "^1.20.13",
     "@supabase/supabase-js": "^2.118.0",
+    "barcode-detector": "^3.2.3",
     "next": "16.4.3",
     "pdfmake": "^0.3.12",
     "react": "19.3.0",

@@ -40,6 +40,9 @@ yarn-error.log*
 # supabase CLI privremene datoteke
 /supabase/.temp/
 
+# čitač barkodova – kopira se iz node_modules prije builda
+/public/zxing/
+
 # cloudflare / opennext
 /.open-next/
 /.wrangler/

@@ -2,6 +2,8 @@
 
 import { useEffect, useState, type FormEvent } from "react";
 import { Ploca } from "@/components/Ploca";
+import { ProizvodBarkoda, type DodaniProizvod } from "./ProizvodBarkoda";
+import { SkenerBarkoda } from "./SkenerBarkoda";
 import { Gumb, Poruka } from "@/components/ui";
 import { opisDana, satZagreb } from "@/lib/datum";
 import { prevediGresku } from "@/lib/greske";
@@ -77,6 +79,8 @@ export function UnosObroka({
   const [greska, setGreska] = useState<string | null>(null);
   const [salje, setSalje] = useState(false);
   const [nedavni, setNedavni] = useState<Nedavni[]>([]);
+  const [skener, setSkener] = useState<null | "kamera" | { barkod: string }>(null);
+  const [dodani, setDodani] = useState<DodaniProizvod[]>([]);
 
   // Nedavni obroci za unos jednim dodirom (samo kod novog obroka).
   useEffect(() => {
@@ -118,6 +122,15 @@ export function UnosObroka({
     ugljikohidrati: vrijednosti.ugljikohidrati ?? 0,
     masti: vrijednosti.masti ?? 0,
   });
+
+  function dodajProizvod(x: DodaniProizvod) {
+    const zbroji = (staro: string, dodatak: number) => formatG((parsirajBroj(staro) ?? 0) + dodatak);
+    setP((v) => zbroji(v, x.proteini));
+    setUh((v) => zbroji(v, x.ugljikohidrati));
+    setM((v) => zbroji(v, x.masti));
+    setDodani((d) => [...d, x]);
+    setSkener(null);
+  }
 
   function popuni(n: Nedavni) {
     setNaziv(n.naziv);
@@ -165,6 +178,10 @@ export function UnosObroka({
     <Ploca naslov={postojeci ? "Uredi obrok" : "Novi obrok"} onZatvori={onZatvori}>
       <form onSubmit={spremi} className="flex flex-col gap-5">
         <p className="-mt-2 text-sm text-tekst-2">{opisDana(datum)}</p>
+
+        <Gumb type="button" varijanta="sporedni" onClick={() => setSkener("kamera")}>
+          📷 Skeniraj barkod
+        </Gumb>
 
         {nedavni.length > 0 && (
           <div className="flex flex-col gap-2">
@@ -227,6 +244,12 @@ export function UnosObroka({
           <span className="text-tekst-2">kcal</span>
         </div>
 
+        {dodani.length > 0 && (
+          <p className="-mt-2 text-sm text-tekst-2">
+            Skenirano: {dodani.map((d) => `${d.naziv} ${formatG(d.grami)} g`).join(" · ")}
+          </p>
+        )}
+
         {greska && <Poruka tip="greska">{greska}</Poruka>}
 
         <Gumb type="submit" disabled={salje}>
@@ -238,6 +261,18 @@ export function UnosObroka({
           </Gumb>
         )}
       </form>
+
+      {skener === "kamera" && (
+        <SkenerBarkoda onBarkod={(barkod) => setSkener({ barkod })} onZatvori={() => setSkener(null)} />
+      )}
+      {skener && skener !== "kamera" && (
+        <ProizvodBarkoda
+          barkod={skener.barkod}
+          onDodaj={dodajProizvod}
+          onZatvori={() => setSkener(null)}
+          onPonovo={() => setSkener("kamera")}
+        />
+      )}
     </Ploca>
   );
 }
