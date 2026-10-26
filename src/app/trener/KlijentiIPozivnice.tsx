@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { LinkZaSlanje } from "@/components/LinkZaSlanje";
+import { LinkZaInstalaciju } from "./LinkZaInstalaciju";
 import { Cip, Gumb, Kartica, Polje, Poruka, Ucitavanje } from "@/components/ui";
 import { aktivnost, type Aktivnost } from "@/lib/aktivnost";
 import { danMjesec, formatDatum } from "@/lib/datum";
@@ -132,6 +133,7 @@ export function KlijentiIPozivnice() {
       )}
 
       <NovaPozivnica naPromjenu={ucitaj} />
+      <LinkZaInstalaciju />
 
       {pozivnice === null || klijenti === null ? (
         !greska && <Ucitavanje />
