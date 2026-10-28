@@ -1,5 +1,6 @@
 "use client";
 
+import { UkljuciObavijesti } from "@/components/poruke/UkljuciObavijesti";
 import { UputaInstalacije } from "@/components/UputaInstalacije";
 import { Zaglavlje } from "@/components/Zaglavlje";
 import { Zasticeno } from "@/components/Zasticeno";
@@ -12,6 +13,7 @@ export default function TrenerStranica() {
       <Stranica>
         <Zaglavlje />
         <UputaInstalacije />
+        <UkljuciObavijesti uloga="trener" mjesto="pocetna" />
         <KlijentiIPozivnice />
       </Stranica>
     </Zasticeno>

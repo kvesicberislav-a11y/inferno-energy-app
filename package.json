@@ -14,6 +14,7 @@
     "cf-typegen": "wrangler types --env-interface CloudflareEnv cloudflare-env.d.ts"
   },
   "dependencies": {
+    "@block65/webcrypto-web-push": "2.0.0",
     "@opennextjs/cloudflare": "^1.20.13",
     "@supabase/supabase-js": "^2.118.0",
     "barcode-detector": "^3.2.3",

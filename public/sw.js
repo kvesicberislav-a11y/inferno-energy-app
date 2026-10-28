@@ -1,6 +1,7 @@
 // INFERNO ENERGY – service worker
 // - stranice uvijek s mreže (podaci moraju biti svježi); bez interneta -> /offline.html
 // - nepromjenjive datoteke (/_next/static, ikone) iz predmemorije za brže otvaranje
+// - obavijesti na mobitel (nova poruka) i otvaranje aplikacije dodirom na obavijest
 const PREDMEMORIJA = "inferno-v1";
 const OFFLINE = "/offline.html";
 
@@ -50,4 +51,47 @@ self.addEventListener("fetch", (dogadaj) => {
       ),
     );
   }
+});
+
+// Obavijest s poslužitelja → prikaži je na mobitelu
+self.addEventListener("push", (dogadaj) => {
+  let podaci = {};
+  try {
+    podaci = dogadaj.data ? dogadaj.data.json() : {};
+  } catch {
+    podaci = { body: dogadaj.data ? dogadaj.data.text() : "" };
+  }
+  dogadaj.waitUntil(
+    self.registration.showNotification(podaci.title || "INFERNO ENERGY", {
+      body: podaci.body || "",
+      icon: "/ikone/ikona-192.png",
+      badge: "/ikone/znacka-96.png",
+      tag: podaci.tag || "poruke",
+      renotify: true,
+      data: { url: podaci.url || "/" },
+    }),
+  );
+});
+
+// Dodir na obavijest → otvori aplikaciju na pravoj stranici
+self.addEventListener("notificationclick", (dogadaj) => {
+  dogadaj.notification.close();
+  let cilj = new URL("/", self.location.origin);
+  try {
+    const url = new URL((dogadaj.notification.data && dogadaj.notification.data.url) || "/", self.location.origin);
+    if (url.origin === self.location.origin) cilj = url; // samo stranice naše aplikacije
+  } catch {
+    // ostaje početna stranica
+  }
+  dogadaj.waitUntil(
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then(async (prozori) => {
+      const otvoren = prozori.find((p) => new URL(p.url).origin === self.location.origin);
+      if (otvoren) {
+        await otvoren.focus();
+        if ("navigate" in otvoren) await otvoren.navigate(cilj.href).catch(() => {});
+        return;
+      }
+      await self.clients.openWindow(cilj.href);
+    }),
+  );
 });

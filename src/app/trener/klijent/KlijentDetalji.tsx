@@ -106,10 +106,18 @@ export function KlijentDetalji() {
     <>
       {natrag}
       <div className="flex flex-col gap-2">
-        <div>
-          <h1 className="text-2xl font-bold">{ime}</h1>
-          <p className="text-tekst-2">{profil.email}</p>
-          <p className="text-sm text-tekst-2">Klijent od {formatDatum(profil.kreirano)}</p>
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <h1 className="text-2xl font-bold">{ime}</h1>
+            <p className="truncate text-tekst-2">{profil.email}</p>
+            <p className="text-sm text-tekst-2">Klijent od {formatDatum(profil.kreirano)}</p>
+          </div>
+          <Link
+            href={`/trener/poruke?id=${profil.id}`}
+            className="inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-2xl border border-rub bg-povrsina-2 px-4 text-base font-semibold text-tekst transition active:scale-[0.98]"
+          >
+            💬 Poruka
+          </Link>
         </div>
         {a && (
           <div

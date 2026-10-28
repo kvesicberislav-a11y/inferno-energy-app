@@ -12,6 +12,18 @@ export function formatDatum(iso: string) {
   return formatDatuma.format(new Date(iso));
 }
 
+const formatVremena = new Intl.DateTimeFormat("hr-HR", {
+  timeZone: ZONA,
+  hour: "2-digit",
+  minute: "2-digit",
+  hour12: false,
+});
+
+/** "2026-10-24T10:05:00Z" -> "12:05" (po zagrebačkom vremenu) */
+export function vrijemeZagreb(iso: string) {
+  return formatVremena.format(new Date(iso));
+}
+
 // ---------------------------------------------------------------------
 // Kalendarski dani kao tekst "YYYY-MM-DD" (bez vremena i bez zona)
 // ---------------------------------------------------------------------

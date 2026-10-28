@@ -48,3 +48,17 @@ for (const [datoteka, velicina, udio, zaobljeno] of izlaz) {
     .toFile(datoteka);
   console.log("✓", datoteka);
 }
+
+// Mala jednobojna ikona za traku obavijesti na Androidu (bijeli plamen, prozirna pozadina)
+const ZNACKA = 96;
+const mjeriloZnacke = (ZNACKA * 0.86) / VISINA;
+await sharp(
+  Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${ZNACKA} ${ZNACKA}">
+  <g transform="translate(${ZNACKA / 2} ${ZNACKA / 2 + 1}) scale(${mjeriloZnacke.toFixed(3)}) translate(${-SREDISTE.x} ${-SREDISTE.y})">
+    <path d="${PLAMEN}" fill="#ffffff"/>
+  </g>
+</svg>`),
+)
+  .png({ compressionLevel: 9 })
+  .toFile("public/ikone/znacka-96.png");
+console.log("✓ public/ikone/znacka-96.png");
