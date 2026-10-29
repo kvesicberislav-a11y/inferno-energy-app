@@ -40,8 +40,22 @@ export async function POST(request: Request) {
     return greska("Poslužitelj još nije podešen.", 500);
   }
 
-  // 1) Zauzmi pozivnicu (samo ako je još slobodna i nije istekla).
   const sada = new Date().toISOString();
+  const emailMalim = email.trim().toLowerCase();
+
+  // 0) Pozivnica za trenera vrijedi samo za e-mail na koji je poslana – krivi e-mail je ne troši.
+  const { data: vrsta } = await admin
+    .from("pozivnice")
+    .select("trener_email")
+    .eq("kod", kod)
+    .is("iskoristena_at", null)
+    .gt("vrijedi_do", sada)
+    .maybeSingle();
+  if (vrsta?.trener_email && vrsta.trener_email !== emailMalim) {
+    return greska("Ova pozivnica vrijedi samo za e-mail na koji je poslana. Provjeri adresu.");
+  }
+
+  // 1) Zauzmi pozivnicu (samo ako je još slobodna i nije istekla).
   const { data: pozivnica, error: greskaPozivnice } = await admin
     .from("pozivnice")
     .update({ iskoristena_at: sada })
@@ -58,7 +72,7 @@ export async function POST(request: Request) {
 
   // 2) Napravi korisnika (profil s ulogom "klijent" nastaje automatski u bazi).
   const { data: novi, error: greskaKorisnika } = await admin.auth.admin.createUser({
-    email: email.trim().toLowerCase(),
+    email: emailMalim,
     password: lozinka,
     email_confirm: true,
     user_metadata: { ime: ime.trim() },
@@ -77,7 +91,15 @@ export async function POST(request: Request) {
     return greska("Registracija nije uspjela. Pokušaj ponovno.", 500);
   }
 
-  await admin.from("pozivnice").update({ iskoristio: novi.user.id }).eq("id", pozivnica.id);
+  // Zapiši tko je iskoristio pozivnicu (baza tada pozivnicu za trenera pretvara u trenera).
+  let { error: greskaZapisa } = await admin.from("pozivnice").update({ iskoristio: novi.user.id }).eq("id", pozivnica.id);
+  if (greskaZapisa) {
+    ({ error: greskaZapisa } = await admin.from("pozivnice").update({ iskoristio: novi.user.id }).eq("id", pozivnica.id));
+  }
+  if (greskaZapisa && vrsta?.trener_email === emailMalim) {
+    // rezerva: izravno postavi ulogu trenera
+    await admin.from("profili").update({ uloga: "trener" }).eq("id", novi.user.id).eq("email", emailMalim);
+  }
 
   return NextResponse.json({ ok: true });
 }

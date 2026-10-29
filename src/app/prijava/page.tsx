@@ -11,7 +11,7 @@ import { supabase } from "@/lib/supabase/client";
 import { pocetnaZa } from "@/lib/tipovi";
 
 export default function Prijava() {
-  const { session, profil, ucitava, greska: greskaAplikacije } = useAuth();
+  const { session, profil, ucitava, greska: greskaAplikacije, pokusajPonovno, odjava } = useAuth();
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [lozinka, setLozinka] = useState("");
@@ -49,6 +49,16 @@ export default function Prijava() {
       </div>
 
       {greskaAplikacije && <Poruka tip="greska">{greskaAplikacije}</Poruka>}
+      {greskaAplikacije && session && (
+        <div className="grid grid-cols-2 gap-2">
+          <Gumb malen onClick={pokusajPonovno}>
+            Pokušaj ponovno
+          </Gumb>
+          <Gumb varijanta="sporedni" malen onClick={() => void odjava()}>
+            Odjava
+          </Gumb>
+        </div>
+      )}
 
       {/* tek kad je poznato stanje prijave (izbjegava razliku server/preglednik) */}
       {!ucitava && !session && <UputaInstalacije />}

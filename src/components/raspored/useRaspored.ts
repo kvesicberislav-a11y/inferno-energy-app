@@ -2,7 +2,9 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { prevediGresku } from "@/lib/greske";
+import { danasZagreb } from "@/lib/datum";
 import {
+  aktivnaPravila,
   razvijTermine,
   uDodatni,
   uIznimku,
@@ -65,7 +67,8 @@ export function useRaspored(klijentId: string | null, od: string, doDana: string
       const greska = p.error || d.error;
       setStanje({
         kljuc,
-        pravila,
+        // za prikaz "stalni termini" samo oni koji traju; ukinuti ostaju u prošlim tjednima
+        pravila: aktivnaPravila(pravila, danasZagreb()),
         iznimke,
         dodatni,
         termini: razvijTermine(pravila, iznimke, dodatni, od, doDana),

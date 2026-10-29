@@ -36,13 +36,15 @@ export async function POST(request: Request) {
   const korisnik = await provjeriKorisnika(request, admin);
   if ("greska" in korisnik) return greska(korisnik.greska, korisnik.status);
 
-  // Zaštita od slučajnog slanja u petlji
-  const { count } = await admin
-    .from("poruke")
-    .select("id", { count: "exact", head: true })
-    .eq("autor_id", korisnik.id)
-    .gte("kreirano", new Date(Date.now() - 60_000).toISOString());
-  if ((count ?? 0) >= 20) return greska("Previše poruka u kratkom vremenu. Pričekaj minutu.", 429);
+  // Zaštita od slučajnog slanja u petlji (samo klijenti – trenerova poruka skupini upisuje puno redova odjednom)
+  if (korisnik.uloga === "klijent") {
+    const { count } = await admin
+      .from("poruke")
+      .select("id", { count: "exact", head: true })
+      .eq("autor_id", korisnik.id)
+      .gte("kreirano", new Date(Date.now() - 60_000).toISOString());
+    if ((count ?? 0) >= 20) return greska("Previše poruka u kratkom vremenu. Pričekaj minutu.", 429);
+  }
 
   let klijenti: string[];
   if (korisnik.uloga === "klijent") {

@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { Gumb, Kartica, Poruka } from "@/components/ui";
 import { prevediGresku } from "@/lib/greske";
 import { supabase } from "@/lib/supabase/client";
-import { uVjezbu, type Vjezba } from "@/lib/treninzi";
+import { uVjezbu, youtubeId, type Vjezba } from "@/lib/treninzi";
 
 type Zamjena = { id: string; izvorna: string; nova: string };
 type Podaci = { klijentId: string; vjezbe: Vjezba[]; zamjene: Zamjena[]; greska: string | null };
@@ -104,8 +104,14 @@ export function VjezbeKlijenta({ klijentId }: { klijentId: string }) {
               {otvorena === v.id && (
                 <div className="flex flex-col gap-2 border-t border-rub px-3 py-2.5">
                   <p className="whitespace-pre-line text-sm text-tekst-2">{v.opis || "Nema opisa."}</p>
-                  {v.youtube_url && (
-                    <a href={v.youtube_url} target="_blank" rel="noopener noreferrer" className="text-sm text-vatra">
+                  {youtubeId(v.youtube_url) && (
+                    // samo pravi YouTube link (klijent ga je upisao sam)
+                    <a
+                      href={`https://www.youtube.com/watch?v=${youtubeId(v.youtube_url)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-sm text-vatra"
+                    >
                       ▶ Video
                     </a>
                   )}

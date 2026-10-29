@@ -22,7 +22,8 @@ import {
   type Vjezba,
 } from "@/lib/treninzi";
 
-type Red = { redni: number; ponavljanja: string; kg: string; spremljeno: Serija | null };
+/** dirnut = klijent je već nešto upisao u red (tada ga "prošli put" ne prepisuje) */
+type Red = { redni: number; ponavljanja: string; kg: string; spremljeno: Serija | null; dirnut?: boolean };
 
 function pocetniRedovi(pv: PlanVjezba, spremljene: Serija[], jeZamjena: boolean): Red[] {
   const broj = Math.max(pv.serije, spremljene.reduce((m, s) => Math.max(m, s.redni_broj), 0));
@@ -109,7 +110,7 @@ export function VjezbaUnos({
           // Nespremljene serije popuni onim što je bilo prošli put.
           setRedovi((rr) =>
             rr.map((r) => {
-              if (r.spremljeno) return r;
+              if (r.spremljeno || r.dirnut) return r;
               const p = zadnje.find((s) => s.redni_broj === r.redni) ?? zadnje[zadnje.length - 1];
               return { ...r, ponavljanja: String(p.ponavljanja), kg: formatG(p.kg) };
             }),
@@ -122,7 +123,7 @@ export function VjezbaUnos({
   }, [klijentId, vjezbaId, pocetniTreningId]);
 
   function promijeni(i: number, polje: "ponavljanja" | "kg", vrijednost: string) {
-    setRedovi((rr) => rr.map((r, j) => (j === i ? { ...r, [polje]: vrijednost } : r)));
+    setRedovi((rr) => rr.map((r, j) => (j === i ? { ...r, [polje]: vrijednost, dirnut: true } : r)));
   }
 
   async function osigurajTrening(): Promise<string> {
@@ -170,7 +171,8 @@ export function VjezbaUnos({
             ponavljanja,
             kg,
           },
-          { onConflict: "trening_id,vjezba_id,redni_broj" },
+          // mjesto u planu je dio ključa: ista vježba dvaput u danu ne prebrisuje drugu
+          { onConflict: "trening_id,plan_vjezba_id,vjezba_id,redni_broj" },
         )
         .select()
         .single();

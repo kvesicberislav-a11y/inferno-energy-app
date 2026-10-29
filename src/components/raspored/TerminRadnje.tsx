@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Ploca } from "@/components/Ploca";
 import { Gumb, Poruka } from "@/components/ui";
-import { danasZagreb } from "@/lib/datum";
+import { danasZagreb, dodajDane } from "@/lib/datum";
 import { prevediGresku } from "@/lib/greske";
 import { opisTermina, type Termin } from "@/lib/raspored";
 import { supabase } from "@/lib/supabase/client";
@@ -69,6 +69,9 @@ export function TerminRadnje({
     if (!noviDatum || !novoVrijeme) return setGreska("Odaberi datum i vrijeme.");
     const novo = { datum: noviDatum, vrijeme: novoVrijeme };
     if (termin.pravilo) {
+      if (noviDatum > dodajDane(izvorni.datum, 28)) {
+        return setGreska("Stalni termin možeš pomaknuti najviše 4 tjedna. Za kasniji datum dodaj dodatni termin.");
+      }
       return izvrsi(
         () =>
           sb
@@ -124,6 +127,8 @@ export function TerminRadnje({
                 <input
                   type="date"
                   min={danasZagreb()}
+                  // stalni termin se može pomaknuti najviše 4 tjedna (dalje bi nestao iz rasporeda)
+                  max={termin.pravilo ? dodajDane(izvorni.datum, 28) : undefined}
                   value={noviDatum}
                   onChange={(e) => setNoviDatum(e.target.value)}
                   className={POLJE}

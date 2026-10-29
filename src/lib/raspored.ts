@@ -10,8 +10,15 @@ export type Pravilo = {
   vrijeme: string; // "18:00"
   trajanje_min: number;
   od_datuma: string;
+  /** zadnji dan stalnog termina (ukinut termin) ili null ako traje */
+  do_datuma: string | null;
   napomena: string;
 };
+
+/** Stalni termini koji još traju (ukinuti ostaju samo zbog povijesti u rasporedu). */
+export function aktivnaPravila(pravila: Pravilo[], danas: string) {
+  return pravila.filter((p) => p.do_datuma === null || p.do_datuma >= danas);
+}
 
 export type Iznimka = {
   id: string;
@@ -61,6 +68,7 @@ export function uPravilo(r: Red): Pravilo {
     vrijeme: hhmm(r.vrijeme),
     trajanje_min: Number(r.trajanje_min ?? 60),
     od_datuma: String(r.od_datuma),
+    do_datuma: r.do_datuma ? String(r.do_datuma) : null,
     napomena: String(r.napomena ?? ""),
   };
 }
@@ -105,7 +113,8 @@ export function razvijTermine(
     let d = p.od_datuma > pocetak ? p.od_datuma : pocetak;
     // prvi odgovarajući dan u tjednu
     while (danUTjednu(d) !== p.dan_u_tjednu) d = dodajDane(d, 1);
-    for (; d <= kraj; d = dodajDane(d, 7)) {
+    const krajPravila = p.do_datuma && p.do_datuma < kraj ? p.do_datuma : kraj;
+    for (; d <= krajPravila; d = dodajDane(d, 7)) {
       const iz = poKljucu.get(`${p.id}|${d}`) ?? null;
       const datum = iz && !iz.otkazan && iz.novi_datum ? iz.novi_datum : d;
       const vrijeme = iz && !iz.otkazan && iz.novo_vrijeme ? iz.novo_vrijeme : p.vrijeme;

@@ -8,7 +8,13 @@ export function prevediGresku(poruka: string | undefined | null): string {
   }
   if (p.includes("password should be")) return "Lozinka mora imati barem 8 znakova.";
   if (p.includes("should be different")) return "Nova lozinka mora biti drugačija od stare.";
-  if (p.includes("failed to fetch") || p.includes("network")) {
+  if (
+    p.includes("failed to fetch") ||
+    p.includes("network") ||
+    p.includes("load failed") || // Safari
+    p.includes("timeout") ||
+    p.includes("aborted")
+  ) {
     return "Nema veze s poslužiteljem. Provjeri internet.";
   }
   return `Nešto je pošlo po zlu (${poruka ?? "nepoznata greška"}).`;

@@ -3,7 +3,8 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "inferno-energy-app",
-  "main": ".open-next/worker.js",
+  // worker.mjs = Next.js aplikacija (.open-next/worker.js) + dnevno održavanje (cron ispod)
+  "main": "worker.mjs",
   "compatibility_date": "2026-10-01",
   "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
   "assets": {
@@ -16,6 +17,17 @@
       "service": "inferno-energy-app"
     }
   ],
+  // Spremište za dnevne sigurnosne kopije baze (Cloudflare KV, besplatno do 1 GB).
+  "kv_namespaces": [
+    {
+      "binding": "KOPIJE",
+      "id": "10a195615806466080fa9b0effcc07c6"
+    }
+  ],
+  // Dnevno održavanje u 02:15 UTC (03:15 zimi / 04:15 ljeti po zagrebačkom vremenu).
+  "triggers": {
+    "crons": ["15 2 * * *"]
+  },
   // Ne briši varijable upisane u nadzornoj ploči pri svakoj objavi.
   "keep_vars": true,
   "observability": {

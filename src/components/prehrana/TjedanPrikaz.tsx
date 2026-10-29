@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { Kartica, Poruka, Ucitavanje } from "@/components/ui";
-import { danMjesec, danasZagreb, dodajDane, kratkiDan, ponedjeljak } from "@/lib/datum";
+import { useDanas } from "@/components/useDanas";
+import { danMjesec, dodajDane, kratkiDan, ponedjeljak } from "@/lib/datum";
 import { ciljZaDan, formatG, formatKcal, zbroj } from "@/lib/makroi";
 import { usePrehrana } from "./usePrehrana";
 
@@ -13,8 +14,11 @@ export function TjedanPrikaz({
   klijentId: string;
   odaberiDan: (dan: string) => void;
 }) {
-  const danas = danasZagreb();
-  const [pon, setPon] = useState(() => ponedjeljak(danasZagreb()));
+  // tjedan se računa od današnjeg (koji se sam osvježi nakon ponoći), pomak u tjednima unatrag
+  const danas = useDanas();
+  const [pomak, setPomak] = useState(0);
+  const pon = dodajDane(ponedjeljak(danas), pomak * 7);
+  const setPon = (novi: string) => setPomak(Math.round((Date.parse(novi) - Date.parse(ponedjeljak(danas))) / (7 * 86_400_000)));
   const ned = dodajDane(pon, 6);
   const { obroci, ciljevi, greska } = usePrehrana(klijentId, pon, ned);
   const dani = Array.from({ length: 7 }, (_, i) => dodajDane(pon, i));

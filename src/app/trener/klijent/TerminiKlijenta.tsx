@@ -34,7 +34,12 @@ export function TerminiKlijenta({ klijentId, ime }: { klijentId: string; ime: st
   async function ukloni(p: Pravilo) {
     if (!window.confirm(`Ukinuti stalni termin: ${opisPravila(p)}?`)) return;
     setGreska(null);
-    const { error } = await supabase().from("termini_pravila").delete().eq("id", p.id);
+    // Termin završava jučer – prošli termini ostaju u rasporedu. Ako još nije ni počeo, briše se.
+    const jucer = dodajDane(danasZagreb(), -1);
+    const { error } =
+      p.od_datuma > jucer
+        ? await supabase().from("termini_pravila").delete().eq("id", p.id)
+        : await supabase().from("termini_pravila").update({ do_datuma: jucer }).eq("id", p.id);
     if (error) return setGreska(prevediGresku(error.message));
     gotovo(await obavijestiKlijenta(klijentId, `Ukinut je stalni termin: ${opisPravila(p)}.`));
   }

@@ -189,7 +189,8 @@ function GrafPrehrane({
 
 function GrafVolumena({ statistika, od, danas }: { statistika: Statistika; od: string; danas: string }) {
   const poTjednu = new Map(statistika.volumen.map((v) => [v.tjedan, v]));
-  const tocke: Tocka[] = tjedni(od, danas).map((t) => ({
+  // samo puni tjedni (prvi djelomični tjedan izgledao bi kao pad volumena)
+  const tocke: Tocka[] = tjedni(od, danas).filter((t) => t >= od).map((t) => ({
     kljuc: t,
     oznaka: danMjesec(t),
     vrijednost: poTjednu.get(t)?.volumen ?? null,

@@ -26,7 +26,8 @@ export async function smanjiSliku(datoteka: File, maks = 1080, kvaliteta = 0.82)
 
 /** Učitaj sliku vježbe i vrati njezin javni URL. */
 export async function ucitajSlikuVjezbe(datoteka: File): Promise<string> {
-  const blob = await smanjiSliku(datoteka);
+  // 720 px je dovoljno za prikaz na mobitelu, a slika je ~3× manja nego u 1080 px
+  const blob = await smanjiSliku(datoteka, 720, 0.8);
   const putanja = `${crypto.randomUUID()}.jpg`;
   const sb = supabase();
   const { error } = await sb.storage

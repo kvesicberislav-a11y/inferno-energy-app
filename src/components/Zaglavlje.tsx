@@ -6,7 +6,6 @@ import { useAuth } from "@/components/AuthProvider";
 import { Logo } from "@/components/Logo";
 import { Navigacija } from "@/components/Navigacija";
 import { Gumb } from "@/components/ui";
-import { iskljuciNaOvomUredaju } from "@/lib/obavijesti";
 
 export function Zaglavlje() {
   const { odjava, profil } = useAuth();
@@ -15,8 +14,6 @@ export function Zaglavlje() {
 
   async function odjaviSe() {
     setOdjavljuje(true);
-    // ovaj mobitel više ne prima obavijesti (najviše 3 s čekanja, odjava uvijek prolazi)
-    await Promise.race([iskljuciNaOvomUredaju(), new Promise((r) => setTimeout(r, 3000))]);
     await odjava();
     router.replace("/prijava");
   }

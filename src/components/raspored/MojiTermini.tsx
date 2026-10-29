@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Kartica } from "@/components/ui";
-import { danMjesec, danasZagreb, dodajDane } from "@/lib/datum";
+import { danMjesec, danasZagreb, dodajDane, vrijemeZagreb } from "@/lib/datum";
 import { DANI, danUTjednu } from "@/lib/treninzi";
 import { PopisTermina } from "./PopisTermina";
 import { useRaspored } from "./useRaspored";
@@ -15,7 +15,15 @@ export function MojiTermini({ klijentId }: { klijentId: string }) {
 
   if (!raspored || (raspored.pravila.length === 0 && raspored.termini.length === 0)) return null;
 
-  const sljedeci = raspored.termini.find((t) => !t.otkazan) ?? null;
+  // današnji termin koji je već završio nije "sljedeći"
+  const [h, m] = vrijemeZagreb(new Date().toISOString()).split(":").map(Number);
+  const sadaMin = h * 60 + m;
+  const zavrsio = (t: { datum: string; vrijeme: string; trajanje: number }) => {
+    if (t.datum !== danas) return false;
+    const [th, tm] = t.vrijeme.split(":").map(Number);
+    return th * 60 + tm + t.trajanje <= sadaMin;
+  };
+  const sljedeci = raspored.termini.find((t) => !t.otkazan && !zavrsio(t)) ?? null;
   const prikazani = svi ? raspored.termini : raspored.termini.slice(0, 4);
   const stalni = [...raspored.pravila]
     .sort((a, b) => a.dan_u_tjednu - b.dan_u_tjednu)

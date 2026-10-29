@@ -168,7 +168,9 @@ export async function napraviPdf(p: PodaciIzvoza): Promise<Blob> {
   const ukupniVolumen = sveSerije.reduce((s, x) => s + x.kg * x.ponavljanja, 0);
 
   const tjedniVolumen: { oznaka: string; v: number }[] = [];
-  for (let t = ponedjeljak(p.od); t <= p.doDana; t = dodajDane(t, 7)) {
+  // samo puni tjedni od prvog ponedjeljka u razdoblju (djelomični prvi tjedan izgledao bi kao pad)
+  const prviPon = ponedjeljak(p.od) < p.od ? dodajDane(ponedjeljak(p.od), 7) : p.od;
+  for (let t = prviPon; t <= p.doDana; t = dodajDane(t, 7)) {
     const v = sveSerije
       .filter((s) => s.datum >= t && s.datum <= dodajDane(t, 6))
       .reduce((a, s) => a + s.kg * s.ponavljanja, 0);

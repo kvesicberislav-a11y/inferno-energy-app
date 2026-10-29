@@ -32,6 +32,8 @@ export function TrenerPoruke() {
 
 function RazgovorSKlijentom({ klijentId }: { klijentId: string }) {
   const [klijent, setKlijent] = useState<{ id: string; ime: string } | null | undefined>(undefined);
+  const [greskaVeze, setGreskaVeze] = useState(false);
+  const [pokusaj, setPokusaj] = useState(0);
 
   useEffect(() => {
     let aktivno = true;
@@ -41,13 +43,15 @@ function RazgovorSKlijentom({ klijentId }: { klijentId: string }) {
       .eq("id", klijentId)
       .eq("uloga", "klijent")
       .maybeSingle()
-      .then(({ data }) => {
-        if (aktivno) setKlijent(data ? { id: String(data.id), ime: String(data.ime || data.email) } : null);
+      .then(({ data, error }) => {
+        if (!aktivno) return;
+        setGreskaVeze(Boolean(error));
+        setKlijent(data ? { id: String(data.id), ime: String(data.ime || data.email) } : null);
       });
     return () => {
       aktivno = false;
     };
-  }, [klijentId]);
+  }, [klijentId, pokusaj]);
 
   const natrag = (
     <Link href="/trener/poruke" className="self-start py-2 text-base font-medium text-vatra">
@@ -60,7 +64,16 @@ function RazgovorSKlijentom({ klijentId }: { klijentId: string }) {
     return (
       <>
         {natrag}
-        <Poruka tip="greska">Klijent nije pronađen.</Poruka>
+        {greskaVeze ? (
+          <>
+            <Poruka tip="greska">Ne mogu učitati razgovor. Provjeri internet.</Poruka>
+            <button type="button" onClick={() => setPokusaj((p) => p + 1)} className="py-2 font-medium text-vatra">
+              Pokušaj ponovno
+            </button>
+          </>
+        ) : (
+          <Poruka tip="greska">Klijent nije pronađen.</Poruka>
+        )}
       </>
     );
   }

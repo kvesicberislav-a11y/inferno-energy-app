@@ -29,7 +29,7 @@ const KARTICE = [
 ] as const;
 type Kartica = (typeof KARTICE)[number][0];
 
-type Ucitano = { id: string; profil: Profil | null; aktivnost: Aktivnost | null };
+type Ucitano = { id: string; profil: Profil | null; aktivnost: Aktivnost | null; greskaVeze: boolean };
 
 export function KlijentDetalji() {
   const parametri = useSearchParams();
@@ -37,6 +37,7 @@ export function KlijentDetalji() {
   const ispravan = UUID.test(id);
   const [ucitano, setUcitano] = useState<Ucitano | null>(null);
   const [verzijaCilja, setVerzijaCilja] = useState(0);
+  const [pokusaj, setPokusaj] = useState(0);
   const [kartica, setKartica] = useState<Kartica>(() => {
     const k = parametri.get("kartica");
     return KARTICE.some(([kljuc]) => kljuc === k) ? (k as Kartica) : "treninzi";
@@ -48,7 +49,8 @@ export function KlijentDetalji() {
     const sb = supabase();
     Promise.all([
       sb.from("profili").select("*").eq("id", id).eq("uloga", "klijent").maybeSingle(),
-      sb.rpc("pregled_klijenata"),
+      // pregled samo ovog klijenta (brže nego računati sve)
+      sb.rpc("pregled_klijenata", { p_klijent: id }),
     ]).then(([p, pregled]) => {
       if (!aktivno) return;
       const red = ((pregled.data as Record<string, unknown>[] | null) ?? []).find((r) => r.id === id);
@@ -60,12 +62,13 @@ export function KlijentDetalji() {
           red && profil
             ? aktivnost(red.zadnja_aktivnost ? String(red.zadnja_aktivnost) : null, profil.kreirano)
             : null,
+        greskaVeze: Boolean(p.error),
       });
     });
     return () => {
       aktivno = false;
     };
-  }, [id, ispravan]);
+  }, [id, ispravan, pokusaj]);
 
   async function promijeniNacin(novi: "uzivo" | "online") {
     if (!ucitano?.profil || ucitano.profil.nacin === novi) return;
@@ -94,7 +97,16 @@ export function KlijentDetalji() {
     return (
       <>
         {natrag}
-        <Poruka tip="greska">Klijent nije pronađen.</Poruka>
+        {ucitano?.greskaVeze ? (
+          <>
+            <Poruka tip="greska">Ne mogu učitati klijenta. Provjeri internet.</Poruka>
+            <button type="button" onClick={() => setPokusaj((p) => p + 1)} className="py-2 font-medium text-vatra">
+              Pokušaj ponovno
+            </button>
+          </>
+        ) : (
+          <Poruka tip="greska">Klijent nije pronađen.</Poruka>
+        )}
       </>
     );
   }

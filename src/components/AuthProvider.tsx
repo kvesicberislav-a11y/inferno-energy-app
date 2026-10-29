@@ -2,6 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
+import { iskljuciNaOvomUredaju } from "@/lib/obavijesti";
 import { POSTAVKE_OK, supabase } from "@/lib/supabase/client";
 import type { Profil } from "@/lib/tipovi";
 
@@ -11,6 +12,8 @@ type AuthStanje = {
   /** true dok ne znamo je li korisnik prijavljen i koji mu je profil */
   ucitava: boolean;
   greska: string | null;
+  /** ponovno učitaj profil (nakon greške veze) */
+  pokusajPonovno: () => void;
   odjava: () => Promise<void>;
 };
 
@@ -22,6 +25,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [profil, setProfil] = useState<Profil | null>(null);
   const [profilZa, setProfilZa] = useState<string | null>(null);
   const [greskaProfila, setGreskaProfila] = useState<string | null>(null);
+  const [pokusaj, setPokusaj] = useState(0);
+  const pokusajPonovno = useCallback(() => setPokusaj((p) => p + 1), []);
 
   // Prati prijavu/odjavu (i automatsko osvježavanje sesije).
   useEffect(() => {
@@ -47,16 +52,37 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (!aktivno) return;
         setProfil((data as Profil | null) ?? null);
         setGreskaProfila(
-          error || !data ? "Tvoj profil nije pronađen. Javi se treneru." : null,
+          error
+            ? "Ne mogu se povezati s aplikacijom. Provjeri internet i pokušaj ponovno."
+            : !data
+              ? "Tvoj profil nije pronađen. Javi se treneru."
+              : null,
         );
         setProfilZa(korisnikId);
       });
     return () => {
       aktivno = false;
     };
-  }, [korisnikId]);
+  }, [korisnikId, pokusaj]);
+
+  // Nakon greške veze: pokušaj ponovno čim se internet vrati ili se aplikacija ponovno otvori
+  const imaGreskuVeze = greskaProfila !== null && profil === null;
+  useEffect(() => {
+    if (!imaGreskuVeze) return;
+    const ponovno = () => {
+      if (document.visibilityState === "visible") pokusajPonovno();
+    };
+    window.addEventListener("online", ponovno);
+    document.addEventListener("visibilitychange", ponovno);
+    return () => {
+      window.removeEventListener("online", ponovno);
+      document.removeEventListener("visibilitychange", ponovno);
+    };
+  }, [imaGreskuVeze, pokusajPonovno]);
 
   const odjava = useCallback(async () => {
+    // ovaj mobitel više ne prima obavijesti za tog korisnika (najviše 3 s čekanja, odjava uvijek prolazi)
+    await Promise.race([iskljuciNaOvomUredaju(), new Promise((r) => setTimeout(r, 3000))]);
     await supabase().auth.signOut();
   }, []);
 
@@ -72,6 +98,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     profil: profilSpreman ? profil : null,
     ucitava: POSTAVKE_OK && (!sesijaPoznata || (korisnikId !== null && !profilSpreman)),
     greska,
+    pokusajPonovno,
     odjava,
   };
 

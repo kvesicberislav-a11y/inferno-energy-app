@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { danasZagreb } from "@/lib/datum";
+import { useDanas } from "@/components/useDanas";
 import { DanPrikaz } from "./DanPrikaz";
 import { TjedanPrikaz } from "./TjedanPrikaz";
 
@@ -10,7 +10,11 @@ type Prikaz = "dan" | "tjedan";
 /** Makroi klijenta: dnevni prikaz s unosom i tjedni pregled. */
 export function Prehrana({ klijentId, mozeUredivati }: { klijentId: string; mozeUredivati: boolean }) {
   const [prikaz, setPrikaz] = useState<Prikaz>("dan");
-  const [datum, setDatum] = useState(() => danasZagreb());
+  // null = "danas" (prati pravi današnji dan i nakon ponoći); inače dan koji je korisnik odabrao
+  const danas = useDanas();
+  const [odabrani, setOdabrani] = useState<string | null>(null);
+  const datum = odabrani ?? danas;
+  const setDatum = (dan: string) => setOdabrani(dan === danas ? null : dan);
 
   return (
     <div className="flex flex-col gap-4">

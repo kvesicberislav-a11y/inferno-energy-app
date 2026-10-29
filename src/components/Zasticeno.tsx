@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/AuthProvider";
-import { Poruka, Stranica, Ucitavanje } from "@/components/ui";
+import { Gumb, Poruka, Stranica, Ucitavanje } from "@/components/ui";
 import { pocetnaZa, type Uloga } from "@/lib/tipovi";
 
 /**
@@ -11,7 +11,7 @@ import { pocetnaZa, type Uloga } from "@/lib/tipovi";
  * Ovo je samo za snalaženje u aplikaciji – podatke stvarno štiti baza (RLS).
  */
 export function Zasticeno({ uloga, children }: { uloga: Uloga; children: React.ReactNode }) {
-  const { session, profil, ucitava, greska } = useAuth();
+  const { session, profil, ucitava, greska, pokusajPonovno, odjava } = useAuth();
   const router = useRouter();
 
   let preusmjeri: string | null = null;
@@ -28,6 +28,23 @@ export function Zasticeno({ uloga, children }: { uloga: Uloga; children: React.R
     return (
       <Stranica>
         <Poruka tip="greska">{greska}</Poruka>
+        {session && (
+          <div className="grid grid-cols-2 gap-2">
+            <Gumb malen onClick={pokusajPonovno}>
+              Pokušaj ponovno
+            </Gumb>
+            <Gumb
+              varijanta="sporedni"
+              malen
+              onClick={async () => {
+                await odjava();
+                router.replace("/prijava");
+              }}
+            >
+              Odjava
+            </Gumb>
+          </div>
+        )}
       </Stranica>
     );
   }

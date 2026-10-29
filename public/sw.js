@@ -2,8 +2,21 @@
 // - stranice uvijek s mreže (podaci moraju biti svježi); bez interneta -> /offline.html
 // - nepromjenjive datoteke (/_next/static, ikone) iz predmemorije za brže otvaranje
 // - obavijesti na mobitel (nova poruka) i otvaranje aplikacije dodirom na obavijest
-const PREDMEMORIJA = "inferno-v1";
+const PREDMEMORIJA = "inferno-v2";
 const OFFLINE = "/offline.html";
+// Najviše datoteka u predmemoriji – starije (iz prošlih verzija aplikacije) se brišu
+const NAJVISE_DATOTEKA = 150;
+
+async function spremi(zahtjev, odgovor) {
+  const c = await caches.open(PREDMEMORIJA);
+  await c.put(zahtjev, odgovor);
+  const kljucevi = await c.keys();
+  const visak = kljucevi.length - NAJVISE_DATOTEKA;
+  // keys() vraća redom kojim su spremljene – brišu se najstarije (offline stranica ostaje)
+  for (const k of kljucevi.filter((k) => !k.url.endsWith(OFFLINE)).slice(0, Math.max(0, visak))) {
+    await c.delete(k);
+  }
+}
 
 self.addEventListener("install", (dogadaj) => {
   dogadaj.waitUntil(
@@ -35,20 +48,35 @@ self.addEventListener("fetch", (dogadaj) => {
     return;
   }
 
-  // Nepromjenjive datoteke: prvo predmemorija
-  if (url.pathname.startsWith("/_next/static/") || url.pathname.startsWith("/ikone/")) {
+  // Nepromjenjive datoteke (imena se mijenjaju sa svakom verzijom): prvo predmemorija
+  if (url.pathname.startsWith("/_next/static/")) {
     dogadaj.respondWith(
       caches.match(zahtjev).then(
         (spremljeno) =>
           spremljeno ||
           fetch(zahtjev).then((odgovor) => {
-            if (odgovor.ok) {
-              const kopija = odgovor.clone();
-              caches.open(PREDMEMORIJA).then((c) => c.put(zahtjev, kopija));
-            }
+            if (odgovor.ok) dogadaj.waitUntil(spremi(zahtjev, odgovor.clone()));
             return odgovor;
           }),
       ),
+    );
+    return;
+  }
+
+  // Ikone: odmah iz predmemorije, a u pozadini se osvježe (nova ikona vidi se idući put)
+  if (url.pathname.startsWith("/ikone/")) {
+    dogadaj.respondWith(
+      caches.match(zahtjev).then((spremljeno) => {
+        const svjeze = fetch(zahtjev)
+          .then(async (odgovor) => {
+            if (odgovor.ok) await spremi(zahtjev, odgovor.clone());
+            return odgovor;
+          })
+          .catch(() => spremljeno);
+        // osvježavanje smije završiti i nakon što je ikona već prikazana
+        dogadaj.waitUntil(svjeze.then(() => undefined));
+        return spremljeno || svjeze;
+      }),
     );
   }
 });

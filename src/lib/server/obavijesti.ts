@@ -1,10 +1,6 @@
 import "server-only";
-import { encryptNotification } from "@block65/webcrypto-web-push";
 import type { SupabaseClient } from "@supabase/supabase-js";
-
-/** Poznate usluge za obavijesti (Google/Android, Apple, Mozilla, Microsoft) – nikamo drugamo ne šaljemo. */
-const POZNATE_USLUGE =
-  /^https:\/\/(fcm\.googleapis\.com|web\.push\.apple\.com|[a-z0-9.-]+\.push\.services\.mozilla\.com|[a-z0-9.-]+\.notify\.windows\.com)\//;
+import { posaljiPush, posiljatelj, POZNATE_USLUGE, type Uredjaj } from "@/lib/push";
 
 /** Najviše uređaja po korisniku i slanja po jednom zahtjevu (Cloudflare besplatni plan dopušta 50 vanjskih poziva). */
 const UREDJAJA_PO_KORISNIKU = 3;
@@ -23,62 +19,8 @@ export function obavijestiPodesene() {
   return Boolean(process.env.VAPID_PRIVATE_JWK);
 }
 
-function izBase64Url(tekst: string) {
-  const b64 = (tekst + "=".repeat((4 - (tekst.length % 4)) % 4)).replace(/-/g, "+").replace(/_/g, "/");
-  return Uint8Array.from(atob(b64), (z) => z.charCodeAt(0));
-}
-
-function uBase64Url(bajtovi: Uint8Array) {
-  return btoa(String.fromCharCode(...bajtovi)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
-}
-
-type Posiljatelj = { kljuc: CryptoKey; javni: string; kontakt: string };
-
-/** Ključevi pošiljatelja iz tajne VAPID_PRIVATE_JWK (JSON s x, y, d) – javni se izračuna iz x i y. */
-async function posiljatelj(tajna: string, kontakt: string): Promise<Posiljatelj | null> {
-  try {
-    const jwk = JSON.parse(tajna) as { x?: string; y?: string; d?: string };
-    if (!jwk.x || !jwk.y || !jwk.d) return null;
-    const javni = new Uint8Array(65);
-    javni[0] = 4;
-    javni.set(izBase64Url(jwk.x), 1);
-    javni.set(izBase64Url(jwk.y), 33);
-    const kljuc = await crypto.subtle.importKey(
-      "jwk",
-      { kty: "EC", crv: "P-256", x: jwk.x, y: jwk.y, d: jwk.d },
-      { name: "ECDSA", namedCurve: "P-256" },
-      false,
-      ["sign"],
-    );
-    return { kljuc, javni: uBase64Url(javni), kontakt };
-  } catch {
-    return null;
-  }
-}
-
-/**
- * Potpis pošiljatelja (VAPID, RFC 8292). Namjerno bez "iat": Google odbija potpis
- * ako mu se to vrijeme čini i djelić sekunde u budućnosti.
- */
-async function vapidZaglavlje(p: Posiljatelj, endpoint: string) {
-  const kodiraj = (o: object) => uBase64Url(new TextEncoder().encode(JSON.stringify(o)));
-  const podaci = `${kodiraj({ typ: "JWT", alg: "ES256" })}.${kodiraj({
-    aud: new URL(endpoint).origin,
-    exp: Math.floor(Date.now() / 1000) + 12 * 60 * 60,
-    sub: p.kontakt,
-  })}`;
-  const potpis = await crypto.subtle.sign({ name: "ECDSA", hash: "SHA-256" }, p.kljuc, new TextEncoder().encode(podaci));
-  return `vapid t=${podaci}.${uBase64Url(new Uint8Array(potpis))}, k=${p.javni}`;
-}
-
-function skrati(tekst: string, duljina: number) {
-  const t = tekst.replace(/\s+/g, " ").trim();
-  return t.length > duljina ? `${t.slice(0, duljina - 1)}…` : t;
-}
-
 /**
  * Šalje obavijest na mobitel(e) zadanih korisnika.
- * Šifriranje po standardu RFC 8291 (aes128gcm) – radi na Androidu, iPhoneu i računalu.
  * @param kontakt adresa aplikacije (usluge za obavijesti traže kontakt pošiljatelja)
  * @returns broj uspješno poslanih obavijesti
  */
@@ -88,7 +30,7 @@ export async function posaljiObavijesti(
   kontakt: string,
 ): Promise<number> {
   if (slanja.length === 0) return 0;
-  const vapid = await posiljatelj(process.env.VAPID_PRIVATE_JWK ?? "", kontakt);
+  const vapid = await posiljatelj(process.env.VAPID_PRIVATE_JWK, kontakt);
   if (!vapid) return 0;
 
   const korisnici = [...new Set(slanja.map((s) => s.korisnikId))];
@@ -98,7 +40,7 @@ export async function posaljiObavijesti(
     .in("korisnik_id", korisnici)
     .order("kreirano", { ascending: false });
 
-  const uredjaji = new Map<string, { endpoint: string; p256dh: string; auth: string }[]>();
+  const uredjaji = new Map<string, Uredjaj[]>();
   for (const r of data ?? []) {
     const id = String(r.korisnik_id);
     const popis = uredjaji.get(id) ?? [];
@@ -115,31 +57,15 @@ export async function posaljiObavijesti(
   const zastarjeli: string[] = [];
   const rezultati = await Promise.allSettled(
     posao.map(async ({ uredjaj, obavijest }) => {
-      const sadrzaj = JSON.stringify({
-        title: skrati(obavijest.naslov, 60),
-        body: skrati(obavijest.tekst, 180),
+      const status = await posaljiPush(vapid, uredjaj, {
+        title: obavijest.naslov,
+        body: obavijest.tekst,
         url: obavijest.url,
         tag: obavijest.oznaka,
       });
-      const tijelo = await encryptNotification(
-        { endpoint: uredjaj.endpoint, expirationTime: null, keys: { p256dh: uredjaj.p256dh, auth: uredjaj.auth } },
-        new TextEncoder().encode(sadrzaj),
-      );
-      const odgovor = await fetch(uredjaj.endpoint, {
-        method: "POST",
-        headers: {
-          authorization: await vapidZaglavlje(vapid, uredjaj.endpoint),
-          // 12 sati: ako je mobitel isključen, obavijest stigne kad se upali
-          ttl: String(12 * 60 * 60),
-          urgency: "high",
-          "content-encoding": "aes128gcm",
-          "content-type": "application/octet-stream",
-        },
-        body: tijelo,
-      });
       // 404/410 = korisnik je ugasio obavijesti ili obrisao aplikaciju → taj uređaj više ne koristimo
-      if (odgovor.status === 404 || odgovor.status === 410) zastarjeli.push(uredjaj.endpoint);
-      return odgovor.ok;
+      if (status === 404 || status === 410) zastarjeli.push(uredjaj.endpoint);
+      return status >= 200 && status < 300;
     }),
   );
 

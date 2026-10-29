@@ -55,7 +55,11 @@ export function SkenerBarkoda({ onBarkod, onZatvori }: { onBarkod: (kod: string)
           video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } },
           audio: false,
         });
-        if (!aktivno || !video.current) return;
+        if (!aktivno || !video.current) {
+          // skener je zatvoren dok se kamera palila – ugasi je
+          tok.getTracks().forEach((t) => t.stop());
+          return;
+        }
         video.current.srcObject = tok;
         await video.current.play();
         const detektor = await napraviDetektor();
