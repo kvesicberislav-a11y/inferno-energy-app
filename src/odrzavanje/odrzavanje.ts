@@ -147,12 +147,13 @@ export async function dnevnoOdrzavanje(
         do {
           const r = await fetch(
             `${url}/rest/v1/${tablica}?select=*&order=id&limit=${REDOVA_PO_DIJELU}&offset=${od}`,
-            { headers: { ...zaglavlja, Accept: "text/csv", Prefer: "count=exact" } },
+            // JSON čuva točne vrijednosti (prazno/null, brojevi) – baza ga vraća izravno (json_populate_recordset)
+            { headers: { ...zaglavlja, Accept: "application/json", Prefer: "count=exact" } },
           );
           if (!r.ok || !r.body) throw new Error(`status ${r.status}`);
           ukupno = ukupnoIzRaspona(r.headers.get("content-range"));
           // tijelo ide ravno u KV (bez obrade – štedi procesorsko vrijeme)
-          await kv.put(`kopija/${datum}/${tablica}${dio ? `.${dio}` : ""}.csv`, r.body, { expirationTtl: ttl });
+          await kv.put(`kopija/${datum}/${tablica}${dio ? `.${dio}` : ""}.json`, r.body, { expirationTtl: ttl });
           od += REDOVA_PO_DIJELU;
           dio++;
         } while (ukupno !== null && od < ukupno);
