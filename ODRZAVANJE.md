@@ -66,7 +66,9 @@ npx supabase@2.122.0 db query --linked --project-ref ifqoqzcsdwnkezvfuobv -f sup
 ```
 
 - Pokreće se iz `%TEMP%`.
-- Nakon svake promjene ponovno pokreni sigurnosne testove (RLS). Svi moraju dati OK.
+- Nakon svake promjene ponovno pokreni sigurnosne testove (RLS) iz `supabase/testovi/`, svaki istom naredbom (`-f supabase/testovi/rls-test-….sql`). Svi moraju dati OK.
+  - Testovi upisuju probne redove pa ih na kraju brišu.
+  - `rls-test-pozivnica-trener.sql` sve poništi i rezultat javi kao grešku `REZULTAT:…`.
 - Supabase savjetnik:
   ```bash
   npx supabase@2.122.0 db advisors --linked --project-ref ifqoqzcsdwnkezvfuobv --type all --level info
@@ -94,14 +96,23 @@ npx opennextjs-cloudflare deploy   # puni i predmemoriju stranica (cdn-cgi/_next
 
 ## Redovite provjere (vidi plan održavanja)
 
-**Mjesečno:**
-- Izvještaj `stanje/zadnje` (ok, veličine).
-- `npm audit` i `npm outdated`.
-- Supabase savjetnik.
-- Cloudflare Workers → Observability: greške 1102 (CPU) i 5xx.
+**Mjesečno, automatski:** zakazani zadatak u Claude aplikaciji na Berislavovom računalu, 1. u mjesecu u 10:00.
+- Ako je aplikacija tada zatvorena, zadatak se pokreće pri sljedećem otvaranju.
+- Zadatak pokreće skriptu koja samo čita:
+  ```bash
+  node scripts/mjesecna-provjera.mjs
+  ```
+- Skripta provjerava:
+  - dnevnu provjeru i kopije (`stanje/zadnje`) te zauzeće prema ograničenjima;
+  - stranice, sigurnosna zaglavlja i zaštitu API-ja uživo;
+  - Cloudflare za zadnjih 30 dana: neuspjele zahtjeve, greške 1102 i najveći dnevni promet;
+  - `npm audit` i `npm outdated`;
+  - Supabase savjetnik, javlja samo nova upozorenja.
+- U siječnju, travnju, srpnju i listopadu napravi i probni povrat u privremene tablice.
+- Izlazni kod 0 znači da je sve u redu, a 2 da ima stvari za pogledati.
+- Poznata i namjerna upozorenja popisana su na vrhu skripte.
 
-**Tromjesečno:**
-- Probni povrat (`--provjera`).
+**Tromjesečno, ručno:**
 - Ažuriranje paketa (samo verzije starije od 2 tjedna; build, lint i test prije objave).
 
 **Godišnje:**
