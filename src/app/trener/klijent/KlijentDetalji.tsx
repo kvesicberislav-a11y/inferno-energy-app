@@ -10,12 +10,14 @@ import { aktivnost, type Aktivnost } from "@/lib/aktivnost";
 import { formatDatum } from "@/lib/datum";
 import type { Profil } from "@/lib/tipovi";
 import { supabase } from "@/lib/supabase/client";
+import { ArhivaKlijenta } from "./ArhivaKlijenta";
+import { BazneVjezbe } from "./BazneVjezbe";
 import { Biljeske } from "./Biljeske";
 import { CiljeviForma } from "./CiljeviForma";
 import { Izvoz } from "./Izvoz";
 import { NovaLozinka } from "./NovaLozinka";
-import { PlanKlijenta } from "./PlanKlijenta";
 import { PovijestTreninga } from "./PovijestTreninga";
+import { ProgramKlijenta } from "./ProgramKlijenta";
 import { TerminiKlijenta } from "./TerminiKlijenta";
 import { VjezbeKlijenta } from "./VjezbeKlijenta";
 
@@ -131,7 +133,17 @@ export function KlijentDetalji() {
             💬 Poruka
           </Link>
         </div>
-        {a && (
+        {profil.arhivirano && (
+          <ArhivaKlijenta
+            klijentId={profil.id}
+            ime={ime}
+            arhivirano={profil.arhivirano}
+            onPromjena={(arhivirano) =>
+              setUcitano({ ...ucitano!, profil: { ...profil, arhivirano, aktivan: arhivirano === null } })
+            }
+          />
+        )}
+        {a && !profil.arhivirano && (
           <div
             className={`flex items-center gap-2 rounded-2xl border px-3 py-2 text-sm ${
               a.upozorenje ? "border-amber-400/40 bg-amber-400/10 text-amber-100" : "border-rub bg-povrsina text-tekst-2"
@@ -197,12 +209,13 @@ export function KlijentDetalji() {
 
       {kartica === "treninzi" && (
         <>
-          {(profil.nacin ?? "uzivo") === "uzivo" ? (
+          {profil.arhivirano ? null : (profil.nacin ?? "uzivo") === "uzivo" ? (
             <TerminiKlijenta klijentId={profil.id} ime={ime} />
           ) : (
             <p className="text-sm text-tekst-2">Online klijent – termini s tobom vode se samo za klijente uživo.</p>
           )}
-          <PlanKlijenta klijentId={profil.id} />
+          <ProgramKlijenta klijentId={profil.id} ime={ime} />
+          <BazneVjezbe klijentId={profil.id} ime={ime} />
           <PovijestTreninga klijentId={profil.id} />
           <VjezbeKlijenta klijentId={profil.id} />
         </>
@@ -215,6 +228,17 @@ export function KlijentDetalji() {
       )}
       {kartica === "napredak" && <NapredakPrikaz klijentId={profil.id} jeKlijent={false} />}
       {kartica === "biljeske" && <Biljeske klijentId={profil.id} />}
+
+      {!profil.arhivirano && (
+        <ArhivaKlijenta
+          klijentId={profil.id}
+          ime={ime}
+          arhivirano={null}
+          onPromjena={(arhivirano) =>
+            setUcitano({ ...ucitano!, profil: { ...profil, arhivirano, aktivan: arhivirano === null } })
+          }
+        />
+      )}
     </>
   );
 }

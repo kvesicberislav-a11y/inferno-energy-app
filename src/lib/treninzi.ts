@@ -46,18 +46,30 @@ export type PlanVjezba = {
 export type PlanDan = {
   id: string;
   plan_id: string;
+  /** tjedan u ciklusu (1–4) */
+  tjedan: number;
   dan_u_tjednu: number;
   naziv: string;
+  /** mišićne skupine koje se taj dan rade, redom */
+  skupine: string[];
   vjezbe: PlanVjezba[];
 };
 
+/** Program klijenta: vrti se u ciklusu od 1–4 tjedna, počevši od ponedjeljka `pocetak`. */
 export type Plan = {
   id: string;
   naziv: string;
   opis: string;
   arhiviran: boolean;
+  klijent_id: string | null;
+  ciklus_tjedana: number;
+  pocetak: string;
   dani: PlanDan[];
 };
+
+export const NAJVISE_TJEDANA = 4;
+/** korak za brzu promjenu kilaže u programu */
+export const KORAK_KG = 2.5;
 
 export type Serija = {
   id: string;
@@ -114,19 +126,116 @@ export function uPlan(r: Red): Plan {
     .map((d) => ({
       id: String(d.id),
       plan_id: String(d.plan_id),
+      tjedan: Number(d.tjedan ?? 1),
       dan_u_tjednu: Number(d.dan_u_tjednu),
       naziv: String(d.naziv ?? ""),
+      skupine: Array.isArray(d.skupine) ? (d.skupine as unknown[]).map(String) : [],
       vjezbe: ((d.plan_vjezbe as Red[] | undefined) ?? [])
         .map(uPlanVjezbu)
         .sort((a, b) => a.redoslijed - b.redoslijed),
     }))
-    .sort((a, b) => a.dan_u_tjednu - b.dan_u_tjednu);
+    .sort((a, b) => a.tjedan - b.tjedan || a.dan_u_tjednu - b.dan_u_tjednu);
   return {
     id: String(r.id),
     naziv: String(r.naziv ?? ""),
     opis: String(r.opis ?? ""),
     arhiviran: Boolean(r.arhiviran),
+    klijent_id: r.klijent_id ? String(r.klijent_id) : null,
+    ciklus_tjedana: Math.min(NAJVISE_TJEDANA, Math.max(1, Number(r.ciklus_tjedana ?? 1))),
+    pocetak: String(r.pocetak ?? ""),
     dani,
+  };
+}
+
+/** Koji je tjedan ciklusa (1…ciklus) za zadani dan. */
+export function tjedanCiklusa(p: Pick<Plan, "ciklus_tjedana" | "pocetak">, dan: string): number {
+  if (p.ciklus_tjedana <= 1 || !p.pocetak) return 1;
+  const pon = ponedjeljakDana(dan);
+  const tjedana = Math.round((Date.parse(`${pon}T00:00:00Z`) - Date.parse(`${p.pocetak}T00:00:00Z`)) / (7 * 86_400_000));
+  return (((tjedana % p.ciklus_tjedana) + p.ciklus_tjedana) % p.ciklus_tjedana) + 1;
+}
+
+/** Ponedjeljak koji bi bio početak ciklusa da je zadani dan u tjednu `tjedan`. */
+export function pocetakZaTjedan(dan: string, tjedan: number): string {
+  const d = new Date(`${ponedjeljakDana(dan)}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() - (tjedan - 1) * 7);
+  return d.toISOString().slice(0, 10);
+}
+
+function ponedjeljakDana(dan: string): string {
+  const d = new Date(`${dan}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7));
+  return d.toISOString().slice(0, 10);
+}
+
+/** Je li po programu (u razdoblju dodjele) taj dan trening? Za pridržavanje plana. */
+export function jePlaniranTrening(
+  dj: { od: string; do: string | null; ciklus: number; pocetak: string; dani: { tjedan: number; dan: number }[] },
+  dan: string,
+) {
+  if (dj.od > dan || (dj.do !== null && dj.do <= dan)) return false;
+  const tjedan = tjedanCiklusa({ ciklus_tjedana: dj.ciklus, pocetak: dj.pocetak }, dan);
+  const broj = danUTjednu(dan);
+  return dj.dani.some((d) => d.tjedan === tjedan && d.dan === broj);
+}
+
+/** Dodjela plana iz upita `plan:planovi(ciklus_tjedana, pocetak, plan_dani(tjedan, dan_u_tjednu))`. */
+export function uDodjeluZaPridrzavanje(r: { od_datuma: unknown; do_datuma: unknown; plan: unknown }) {
+  const plan = (Array.isArray(r.plan) ? r.plan[0] : r.plan) as
+    | { naziv?: string; ciklus_tjedana?: number; pocetak?: string; plan_dani?: { tjedan?: number; dan_u_tjednu: number }[] }
+    | null;
+  return {
+    od: String(r.od_datuma),
+    do: r.do_datuma ? String(r.do_datuma) : null,
+    naziv: plan?.naziv ?? null,
+    ciklus: Number(plan?.ciklus_tjedana ?? 1),
+    pocetak: String(plan?.pocetak ?? ""),
+    dani: (plan?.plan_dani ?? []).map((x) => ({ tjedan: Number(x.tjedan ?? 1), dan: Number(x.dan_u_tjednu) })),
+  };
+}
+
+/** Naziv treninga: zadani naziv, inače mišićne skupine, inače dan u tjednu. */
+export function nazivDana(dan: Pick<PlanDan, "naziv" | "skupine" | "dan_u_tjednu">) {
+  return dan.naziv || dan.skupine.join(" · ") || DANI[dan.dan_u_tjednu - 1];
+}
+
+/**
+ * Vježbe dana po mišićnim skupinama, redom kojim su skupine zadane.
+ * Vježbe iz skupine koja nije zadana dolaze na kraj, pod svojom skupinom.
+ */
+export function poSkupinama(dan: Pick<PlanDan, "skupine" | "vjezbe">): { skupina: string; vjezbe: PlanVjezba[] }[] {
+  const redom = [...dan.skupine];
+  for (const pv of dan.vjezbe) {
+    const s = pv.vjezba?.misicna_skupina ?? "Ostalo";
+    if (!redom.includes(s)) redom.push(s);
+  }
+  return redom.map((skupina) => ({
+    skupina,
+    vjezbe: dan.vjezbe.filter((pv) => (pv.vjezba?.misicna_skupina ?? "Ostalo") === skupina),
+  }));
+}
+
+/** Najveća i zadnja kilaža klijenta na vježbi (iz upisanih serija). */
+export type Kilaza = {
+  vjezbaId: string;
+  maxKg: number | null;
+  maxPonavljanja: number | null;
+  maxDatum: string | null;
+  zadnjaKg: number | null;
+  zadnjaPonavljanja: number | null;
+  zadnjiDatum: string | null;
+};
+
+export function uKilazu(r: Red): Kilaza {
+  const broj = (v: unknown) => (v === null || v === undefined ? null : Number(v));
+  return {
+    vjezbaId: String(r.vjezba_id),
+    maxKg: broj(r.max_kg),
+    maxPonavljanja: broj(r.max_ponavljanja),
+    maxDatum: r.max_datum ? String(r.max_datum) : null,
+    zadnjaKg: broj(r.zadnja_kg),
+    zadnjaPonavljanja: broj(r.zadnja_ponavljanja),
+    zadnjiDatum: r.zadnji_datum ? String(r.zadnji_datum) : null,
   };
 }
 

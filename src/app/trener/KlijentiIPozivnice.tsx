@@ -34,6 +34,9 @@ export type PregledKlijenta = {
   kcalDanas: number | null;
   kcalCilj: number | null;
   aktivnost: Aktivnost;
+  /** false = u arhivi */
+  aktivan: boolean;
+  arhivirano: string | null;
 };
 
 type Podaci = {
@@ -73,6 +76,8 @@ async function dohvatiPodatke(): Promise<Podaci> {
       kcalDanas: r.kcal_danas == null ? null : Number(r.kcal_danas),
       kcalCilj: r.kcal_cilj == null ? null : Number(r.kcal_cilj),
       aktivnost: aktivnost(zadnja, kreirano),
+      aktivan: r.aktivan !== false,
+      arhivirano: r.arhivirano ? String(r.arhivirano) : null,
     };
   });
   // Prvo oni kojima treba pažnja (najdulje bez unosa), zatim ostali po imenu
@@ -92,6 +97,7 @@ export function KlijentiIPozivnice() {
   const [filtar, setFiltar] = useState<"svi" | "paznja">("svi");
   const [nacin, setNacin] = useState<"svi" | "uzivo" | "online">("svi");
   const [upit, setUpit] = useState("");
+  const [arhiva, setArhiva] = useState(false);
 
   useEffect(() => {
     let aktivno = true;
@@ -104,15 +110,19 @@ export function KlijentiIPozivnice() {
   }, [verzija]);
 
   const ucitaj = useCallback(() => setVerzija((v) => v + 1), []);
-  const klijenti = podaci?.klijenti ?? null;
+  const sviKlijenti = podaci?.klijenti ?? null;
+  // arhivirani (prestali trenirati) ne broje se i ne prikazuju u običnom popisu
+  const klijenti = sviKlijenti?.filter((k) => k.aktivan) ?? null;
+  const arhivirani = sviKlijenti?.filter((k) => !k.aktivan) ?? [];
   const pozivnice = podaci?.pozivnice ?? null;
   const greska = podaci?.greska ?? null;
 
   const trebaPaznju = klijenti?.filter((k) => k.aktivnost.upozorenje).length ?? 0;
   const aktivniDanas = klijenti?.filter((k) => !k.aktivnost.nikad && k.aktivnost.danaBez === 0).length ?? 0;
   const u = upit.trim().toLowerCase();
-  const prikazani =
-    klijenti?.filter(
+  const prikazani = arhiva
+    ? arhivirani.filter((k) => !u || `${k.ime} ${k.email}`.toLowerCase().includes(u))
+    : klijenti?.filter(
       (k) =>
         (filtar === "svi" || k.aktivnost.upozorenje) &&
         (nacin === "svi" || k.nacin === nacin) &&
@@ -149,29 +159,55 @@ export function KlijentiIPozivnice() {
           )}
 
           <section className="flex flex-col gap-3">
-            {klijenti.length === 0 ? (
+            {klijenti.length === 0 && arhivirani.length === 0 ? (
               <Poruka>Još nema klijenata. Pozovi prvog gumbom iznad.</Poruka>
             ) : (
               <>
                 <div className="-mx-4 flex items-center gap-2 overflow-x-auto px-4 pb-1">
-                  <Cip aktivan={nacin === "svi"} onClick={() => setNacin("svi")}>
+                  <Cip
+                    aktivan={!arhiva && nacin === "svi"}
+                    onClick={() => {
+                      setArhiva(false);
+                      setNacin("svi");
+                    }}
+                  >
                     Svi ({klijenti.length})
                   </Cip>
-                  <Cip aktivan={nacin === "uzivo"} onClick={() => setNacin("uzivo")}>
+                  <Cip
+                    aktivan={!arhiva && nacin === "uzivo"}
+                    onClick={() => {
+                      setArhiva(false);
+                      setNacin("uzivo");
+                    }}
+                  >
                     Uživo ({klijenti.filter((k) => k.nacin === "uzivo").length})
                   </Cip>
-                  <Cip aktivan={nacin === "online"} onClick={() => setNacin("online")}>
+                  <Cip
+                    aktivan={!arhiva && nacin === "online"}
+                    onClick={() => {
+                      setArhiva(false);
+                      setNacin("online");
+                    }}
+                  >
                     Online ({klijenti.filter((k) => k.nacin === "online").length})
                   </Cip>
                   <span className="mx-1 h-6 w-px shrink-0 bg-rub" aria-hidden="true" />
                   <Cip
-                    aktivan={filtar === "paznja"}
-                    onClick={() => setFiltar(filtar === "paznja" ? "svi" : "paznja")}
+                    aktivan={!arhiva && filtar === "paznja"}
+                    onClick={() => {
+                      setArhiva(false);
+                      setFiltar(filtar === "paznja" && !arhiva ? "svi" : "paznja");
+                    }}
                   >
                     ⚠ Treba pažnju ({trebaPaznju})
                   </Cip>
+                  {arhivirani.length > 0 && (
+                    <Cip aktivan={arhiva} onClick={() => setArhiva(!arhiva)}>
+                      Arhiva ({arhivirani.length})
+                    </Cip>
+                  )}
                 </div>
-                {klijenti.length > 5 && (
+                {(arhiva ? arhivirani : klijenti).length > 5 && (
                   <input
                     type="search"
                     aria-label="Pretraži klijente"
@@ -182,7 +218,7 @@ export function KlijentiIPozivnice() {
                   />
                 )}
                 {prikazani.length === 0 ? (
-                  <Poruka>{filtar === "paznja" ? "Svi klijenti su aktivni. 👍" : "Nema rezultata."}</Poruka>
+                  <Poruka>{!arhiva && filtar === "paznja" ? "Svi klijenti su aktivni. 👍" : "Nema rezultata."}</Poruka>
                 ) : (
                   prikazani.map((k) => <KarticaKlijenta key={k.id} k={k} />)
                 )}
@@ -209,7 +245,9 @@ function Plocica({ oznaka, vrijednost, upozorenje }: { oznaka: string; vrijednos
 }
 
 export function KarticaKlijenta({ k }: { k: PregledKlijenta }) {
-  const a = k.aktivnost;
+  const a: Aktivnost = k.aktivan
+    ? k.aktivnost
+    : { ...k.aktivnost, upozorenje: false, nikad: true, opis: `U arhivi od ${formatDatum(k.arhivirano ?? k.kreirano)}` };
   const boja = a.upozorenje ? "bg-amber-400" : a.danaBez === 0 && !a.nikad ? "bg-emerald-400" : "bg-zinc-500";
   const ikona = a.upozorenje ? "!" : a.danaBez === 0 && !a.nikad ? "✓" : "";
   return (
@@ -217,7 +255,7 @@ export function KarticaKlijenta({ k }: { k: PregledKlijenta }) {
       href={`/trener/klijent?id=${k.id}`}
       className={`flex flex-col gap-2 rounded-3xl border bg-povrsina p-4 active:scale-[0.99] ${
         a.upozorenje ? "border-amber-400/50" : "border-rub"
-      }`}
+      } ${k.aktivan ? "" : "opacity-60"}`}
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">

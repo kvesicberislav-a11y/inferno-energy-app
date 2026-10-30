@@ -7,7 +7,7 @@ import { Cip, Kartica, Poruka, Ucitavanje } from "@/components/ui";
 import { brojDana, danMjesec, danasZagreb, datumZagreb, dodajDane, ponedjeljak } from "@/lib/datum";
 import { ciljZaDan, formatG, formatKcal } from "@/lib/makroi";
 import { MJERE, format1, type KljucMjere, type Mjerenje } from "@/lib/tijelo";
-import { danUTjednu } from "@/lib/treninzi";
+import { jePlaniranTrening } from "@/lib/treninzi";
 import { useStatistika, type DanMakroa, type Statistika } from "./useStatistika";
 
 const RAZDOBLJA = [
@@ -262,11 +262,7 @@ function Pridrzavanje({
   const sUnosom = razdoblje.filter((d) => daniSObrokom.has(d)).length;
   const prehrana = razdoblje.length ? (sUnosom / razdoblje.length) * 100 : null;
 
-  const planirani = razdoblje.filter((d) =>
-    statistika.dodjele.some(
-      (dj) => dj.od <= d && (dj.do === null || dj.do > d) && dj.daniUTjednu.includes(danUTjednu(d)),
-    ),
-  ).length;
+  const planirani = razdoblje.filter((d) => statistika.dodjele.some((dj) => jePlaniranTrening(dj, d))).length;
   const odradeni = new Set(statistika.treninzi.filter((t) => t.odraden && t.datum >= pocetak).map((t) => t.datum)).size;
   const treninzi = planirani ? Math.min(100, (odradeni / planirani) * 100) : null;
 

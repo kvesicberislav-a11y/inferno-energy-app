@@ -59,7 +59,7 @@ npx wrangler kv key get stanje/zadnje --namespace-id 10a195615806466080fa9b0effc
 
 ## Promjene baze
 
-SQL datoteke `supabase/01…12_*.sql` pokreću se redom (na novom projektu sve, na postojećem samo nove):
+SQL datoteke `supabase/01…13_*.sql` pokreću se redom (na novom projektu sve, na postojećem samo nove):
 
 ```bash
 npx supabase@2.122.0 db query --linked --project-ref ifqoqzcsdwnkezvfuobv -f supabase/NN_naziv.sql
@@ -68,7 +68,7 @@ npx supabase@2.122.0 db query --linked --project-ref ifqoqzcsdwnkezvfuobv -f sup
 - Pokreće se iz `%TEMP%`.
 - Nakon svake promjene ponovno pokreni sigurnosne testove (RLS) iz `supabase/testovi/`, svaki istom naredbom (`-f supabase/testovi/rls-test-….sql`). Svi moraju dati OK.
   - Testovi upisuju probne redove pa ih na kraju brišu.
-  - `rls-test-pozivnica-trener.sql` sve poništi i rezultat javi kao grešku `REZULTAT:…`.
+  - `rls-test-pozivnica-trener.sql` i `rls-test-programi.sql` sve ponište i rezultat jave kao grešku `REZULTAT:…`.
 - Supabase savjetnik:
   ```bash
   npx supabase@2.122.0 db advisors --linked --project-ref ifqoqzcsdwnkezvfuobv --type all --level info

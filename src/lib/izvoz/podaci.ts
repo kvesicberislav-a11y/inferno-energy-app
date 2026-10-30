@@ -3,7 +3,7 @@ import { brojDana, danasZagreb, datumZagreb, dodajDane } from "@/lib/datum";
 import { ciljZaDan, uCilj, uObrok, type Cilj, type Obrok } from "@/lib/makroi";
 import { supabase } from "@/lib/supabase/client";
 import { uMjerenje, uOsobnePodatke, type Mjerenje, type OsobniPodaci } from "@/lib/tijelo";
-import { danUTjednu } from "@/lib/treninzi";
+import { jePlaniranTrening, uDodjeluZaPridrzavanje } from "@/lib/treninzi";
 
 export type SerijaIzvoza = { vjezba: string; redni: number; ponavljanja: number; kg: number };
 export type TreningIzvoza = { datum: string; naziv: string; zavrsen: boolean; serije: SerijaIzvoza[] };
@@ -95,7 +95,7 @@ export async function dohvatiPodatkeIzvoza(klijentId: string, dana: number | nul
     ),
     sb
       .from("dodjele_planova")
-      .select("od_datuma, do_datuma, plan:planovi(naziv, plan_dani(dan_u_tjednu))")
+      .select("od_datuma, do_datuma, plan:planovi(naziv, ciklus_tjedana, pocetak, plan_dani(tjedan, dan_u_tjednu))")
       .eq("klijent_id", klijentId)
       .order("od_datuma"),
   ]);
@@ -137,22 +137,12 @@ export async function dohvatiPodatkeIzvoza(klijentId: string, dana: number | nul
 
   // Pridržavanje (isto kao na kartici Napredak)
   type DodjelaR = { od_datuma: string; do_datuma: string | null; plan: unknown };
-  const dodjele = ((dodjeleR.data as DodjelaR[] | null) ?? []).map((r) => {
-    const plan = (Array.isArray(r.plan) ? r.plan[0] : r.plan) as
-      | { naziv?: string; plan_dani?: { dan_u_tjednu: number }[] }
-      | null;
-    return {
-      od: String(r.od_datuma),
-      do: r.do_datuma ? String(r.do_datuma) : null,
-      naziv: plan?.naziv ?? null,
-      dani: (plan?.plan_dani ?? []).map((x) => Number(x.dan_u_tjednu)),
-    };
-  });
+  const dodjele = ((dodjeleR.data as DodjelaR[] | null) ?? []).map(uDodjeluZaPridrzavanje);
   const danaURazdoblju = Math.max(0, brojDana(od, doDana));
   let planiranih = 0;
   for (let i = 0; i < danaURazdoblju; i++) {
     const d = dodajDane(od, i);
-    if (dodjele.some((dj) => dj.od <= d && (dj.do === null || dj.do > d) && dj.dani.includes(danUTjednu(d)))) planiranih++;
+    if (dodjele.some((dj) => jePlaniranTrening(dj, d))) planiranih++;
   }
   const odradenih = new Set(treninzi.filter((t) => t.zavrsen || t.serije.length > 0).map((t) => t.datum)).size;
 

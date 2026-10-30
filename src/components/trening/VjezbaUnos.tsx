@@ -10,7 +10,7 @@ import { prevediGresku } from "@/lib/greske";
 import { formatG, parsirajBroj } from "@/lib/makroi";
 import { supabase } from "@/lib/supabase/client";
 import {
-  DANI,
+  nazivDana,
   opisCilja,
   prviBroj,
   serijaZaMjesto,
@@ -135,7 +135,7 @@ export function VjezbaUnos({
           klijent_id: klijentId,
           datum,
           plan_dan_id: dan.id,
-          naziv: dan.naziv || DANI[dan.dan_u_tjednu - 1],
+          naziv: nazivDana(dan).slice(0, 60),
         },
         { onConflict: "klijent_id,datum,plan_dan_id" },
       )

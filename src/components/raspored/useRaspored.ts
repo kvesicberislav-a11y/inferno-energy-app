@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { prevediGresku } from "@/lib/greske";
-import { danasZagreb } from "@/lib/datum";
+import { danasZagreb, dodajDane } from "@/lib/datum";
 import {
   aktivnaPravila,
   razvijTermine,
@@ -83,6 +83,18 @@ export function useRaspored(klijentId: string | null, od: string, doDana: string
 
   const osvjezi = useCallback(() => setVerzija((v) => v + 1), []);
   return { raspored: stanje?.kljuc === kljuc ? stanje : null, osvjezi };
+}
+
+/**
+ * Ukini stalni termin: završava jučer, pa prošli termini ostaju u rasporedu.
+ * Ako još nije ni počeo, briše se.
+ */
+export async function ukiniPravilo(p: Pravilo): Promise<string | null> {
+  const jucer = dodajDane(danasZagreb(), -1);
+  const sb = supabase().from("termini_pravila");
+  const { error } =
+    p.od_datuma > jucer ? await sb.delete().eq("id", p.id) : await sb.update({ do_datuma: jucer }).eq("id", p.id);
+  return error ? prevediGresku(error.message) : null;
 }
 
 /** Javi poslužitelju da pošalje klijentu e-mail o promjeni rasporeda. */

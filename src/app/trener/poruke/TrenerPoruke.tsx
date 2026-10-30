@@ -22,6 +22,8 @@ type RedRazgovora = {
   zadnjaOdTrenera: boolean;
   vrijeme: string | null;
   neprocitano: number;
+  /** false = klijent je u arhivi */
+  aktivan: boolean;
 };
 
 /** /trener/poruke – popis razgovora; /trener/poruke?id=… – razgovor s jednim klijentom. */
@@ -109,7 +111,7 @@ function PopisRazgovora() {
           if (!aktivno) return;
           setGreska(error ? prevediGresku(error.message) : null);
           setRedovi(
-            ((data as Record<string, unknown>[] | null) ?? []).map((r) => ({
+            ((data as Record<string, unknown>[] | null) ?? []).map((r): RedRazgovora => ({
               id: String(r.klijent_id),
               ime: String(r.ime || r.email || ""),
               nacin: r.nacin === "online" ? "online" : "uzivo",
@@ -117,7 +119,10 @@ function PopisRazgovora() {
               zadnjaOdTrenera: Boolean(r.zadnja_od_trenera),
               vrijeme: r.zadnje_vrijeme ? String(r.zadnje_vrijeme) : null,
               neprocitano: Number(r.neprocitano ?? 0),
-            })),
+              aktivan: r.aktivan !== false,
+            }))
+              // arhivirani klijenti ostaju samo ako s njima već postoji razgovor
+              .filter((r) => r.aktivan || r.zadnja !== null),
           );
         });
     void ucitaj();
@@ -223,7 +228,7 @@ function PopisRazgovora() {
 
       {grupna && redovi && (
         <GrupnaPoruka
-          redovi={redovi}
+          redovi={redovi.filter((r) => r.aktivan)}
           onZatvori={() => setGrupna(false)}
           onPoslano={() => setVerzija((v) => v + 1)}
         />

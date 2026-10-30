@@ -49,5 +49,27 @@ export function Zasticeno({ uloga, children }: { uloga: Uloga; children: React.R
     );
   }
   if (ucitava || preusmjeri || !profil) return <Ucitavanje />;
+  if (profil.uloga === "klijent" && !profil.aktivan) {
+    return (
+      <Stranica>
+        <div className="flex flex-1 flex-col justify-center gap-4 py-16">
+          <h1 className="text-2xl font-bold">Račun je u arhivi</h1>
+          <p className="text-tekst-2">
+            Trener je tvoj račun stavio u arhivu. Svi tvoji podaci su spremljeni. Ako se vraćaš na treninge, javi se treneru
+            i on će te vratiti jednim dodirom.
+          </p>
+          <Gumb
+            varijanta="sporedni"
+            onClick={async () => {
+              await odjava();
+              router.replace("/prijava");
+            }}
+          >
+            Odjava
+          </Gumb>
+        </div>
+      </Stranica>
+    );
+  }
   return <>{children}</>;
 }

@@ -42,6 +42,7 @@ export function DodatniTermin({
       .select("id, ime, email")
       .eq("uloga", "klijent")
       .eq("nacin", "uzivo")
+      .eq("aktivan", true)
       .order("ime")
       .then(({ data }) => {
         if (aktivno) setKlijenti((data ?? []).map((k) => ({ id: String(k.id), ime: String(k.ime || k.email) })));

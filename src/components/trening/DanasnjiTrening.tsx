@@ -11,17 +11,15 @@ import {
   DANI,
   DANI_KRATKO,
   danUTjednu,
+  nazivDana,
   opisCilja,
+  poSkupinama,
   serijaZaMjesto,
-  type PlanDan,
+  tjedanCiklusa,
   type PlanVjezba,
 } from "@/lib/treninzi";
 import { useTreningKlijenta } from "./useTreningKlijenta";
 import { VjezbaUnos } from "./VjezbaUnos";
-
-function nazivDana(dan: PlanDan) {
-  return dan.naziv || DANI[dan.dan_u_tjednu - 1];
-}
 
 export function DanasnjiTrening({ klijentId }: { klijentId: string }) {
   const danas = danasZagreb();
@@ -54,8 +52,11 @@ export function DanasnjiTrening({ klijentId }: { klijentId: string }) {
     );
   }
 
-  const planDanas = plan.dani.find((d) => d.dan_u_tjednu === danasBroj) ?? null;
-  const dan = plan.dani.find((d) => d.id === odabraniDanId) ?? planDanas;
+  // program se vrti u ciklusu: ovaj tjedan vrijede samo dani tog tjedna ciklusa
+  const tjedan = tjedanCiklusa(plan, danas);
+  const daniTjedna = plan.dani.filter((d) => d.tjedan === tjedan);
+  const planDanas = daniTjedna.find((d) => d.dan_u_tjednu === danasBroj) ?? null;
+  const dan = daniTjedna.find((d) => d.id === odabraniDanId) ?? planDanas;
   const trening = dan ? (treninzi.find((t) => t.datum === danas && t.plan_dan_id === dan.id) ?? null) : null;
 
   async function zavrsi() {
@@ -73,7 +74,7 @@ export function DanasnjiTrening({ klijentId }: { klijentId: string }) {
 
   const odabirTreninga = (
     <div className="flex flex-col gap-2">
-      {plan.dani.map((d) => (
+      {daniTjedna.map((d) => (
         <button
           key={d.id}
           type="button"
@@ -98,7 +99,7 @@ export function DanasnjiTrening({ klijentId }: { klijentId: string }) {
       <div className="grid grid-cols-7 gap-1.5">
         {Array.from({ length: 7 }, (_, i) => {
           const datum = dodajDane(pon, i);
-          const imaTrening = plan.dani.some((d) => d.dan_u_tjednu === i + 1);
+          const imaTrening = daniTjedna.some((d) => d.dan_u_tjednu === i + 1);
           const odraden = treninzi.some((t) => t.datum === datum && (t.zavrsen || t.serije.length > 0));
           const jeDanas = datum === danas;
           return (
@@ -120,7 +121,8 @@ export function DanasnjiTrening({ klijentId }: { klijentId: string }) {
 
       <div className="flex items-center justify-between gap-3">
         <p className="min-w-0 truncate text-sm text-tekst-2">
-          {plan.naziv} · {opisDana(danas)}
+          {plan.naziv}
+          {plan.ciklus_tjedana > 1 ? ` · ${tjedan}. tjedan` : ""} · {opisDana(danas)}
         </p>
         {mojeVjezbeLink}
       </div>
@@ -138,7 +140,7 @@ export function DanasnjiTrening({ klijentId }: { klijentId: string }) {
               <p className="text-sm text-tekst-2">{dan.id === planDanas?.id ? "Današnji trening" : "Odabrani trening"}</p>
               <h2 className="text-2xl font-bold">{nazivDana(dan)}</h2>
             </div>
-            {plan.dani.length > 1 && (
+            {daniTjedna.length > 1 && (
               <button type="button" onClick={() => setBiranje((b) => !b)} className="pb-1 text-sm font-medium text-vatra">
                 {biranje ? "Zatvori" : "Drugi trening"}
               </button>
@@ -151,47 +153,15 @@ export function DanasnjiTrening({ klijentId }: { klijentId: string }) {
             <Poruka>Trener još nije dodao vježbe za ovaj dan.</Poruka>
           ) : (
             <div className="flex flex-col gap-2">
-              {dan.vjezbe.map((pv, i) => {
-                const zamjena = zamjene[pv.id] ?? null;
-                const vjezba = zamjena ?? pv.vjezba;
-                const odradeno =
-                  trening?.serije.filter((s) => serijaZaMjesto(s, pv, zamjena?.id ?? pv.vjezba_id)).length ?? 0;
-                const gotovo = odradeno >= pv.serije;
-                return (
-                  <button
-                    key={pv.id}
-                    type="button"
-                    onClick={() => setOtvorena(pv)}
-                    className={`flex w-full items-center gap-3 rounded-2xl border bg-povrsina p-3 text-left active:scale-[0.99] ${
-                      gotovo ? "border-emerald-500/40" : "border-rub"
-                    }`}
-                  >
-                    <SlicicaVjezbe
-                      slikaUrl={vjezba?.slika_url ?? null}
-                      youtubeUrl={vjezba?.youtube_url ?? null}
-                    />
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate font-semibold">
-                        {i + 1}. {vjezba?.naziv ?? "Vježba"}
-                      </p>
-                      <p className="truncate text-sm text-tekst-2 tabular-nums">
-                        {opisCilja(zamjena ? { ...pv, kg: null } : pv)}
-                      </p>
-                      {zamjena && (
-                        <p className="truncate text-xs text-amber-200">
-                          umjesto: {pv.vjezba?.naziv ?? "vježba iz plana"}
-                        </p>
-                      )}
-                    </div>
-                    <span
-                      className={`shrink-0 rounded-xl px-2.5 py-1 text-sm font-semibold tabular-nums ${
-                        gotovo ? "bg-emerald-500/20 text-emerald-300" : "bg-povrsina-2 text-tekst-2"
-                      }`}
-                    >
-                      {gotovo ? "✓" : `${odradeno}/${pv.serije}`}
-                    </span>
-                  </button>
-                );
+              {poSkupinama(dan).flatMap(({ skupina, vjezbe }, g, skupine) => {
+                const prije = skupine.slice(0, g).reduce((n, s) => n + s.vjezbe.length, 0);
+                const naslov =
+                  vjezbe.length > 0 && (dan.skupine.length > 0 || skupine.length > 1) ? (
+                    <p key={`n-${skupina}`} className="pt-1 text-xs font-bold tracking-wide text-tekst-2 uppercase">
+                      {skupina}
+                    </p>
+                  ) : null;
+                return [naslov, ...vjezbe.map((pv, j) => karticaVjezbe(pv, prije + j))];
               })}
             </div>
           )}
@@ -229,4 +199,37 @@ export function DanasnjiTrening({ klijentId }: { klijentId: string }) {
       )}
     </>
   );
+
+  function karticaVjezbe(pv: PlanVjezba, i: number) {
+    const zamjena = zamjene[pv.id] ?? null;
+    const vjezba = zamjena ?? pv.vjezba;
+    const odradeno = trening?.serije.filter((s) => serijaZaMjesto(s, pv, zamjena?.id ?? pv.vjezba_id)).length ?? 0;
+    const gotovo = odradeno >= pv.serije;
+    return (
+      <button
+        key={pv.id}
+        type="button"
+        onClick={() => setOtvorena(pv)}
+        className={`flex w-full items-center gap-3 rounded-2xl border bg-povrsina p-3 text-left active:scale-[0.99] ${
+          gotovo ? "border-emerald-500/40" : "border-rub"
+        }`}
+      >
+        <SlicicaVjezbe slikaUrl={vjezba?.slika_url ?? null} youtubeUrl={vjezba?.youtube_url ?? null} />
+        <div className="min-w-0 flex-1">
+          <p className="truncate font-semibold">
+            {i + 1}. {vjezba?.naziv ?? "Vježba"}
+          </p>
+          <p className="truncate text-sm text-tekst-2 tabular-nums">{opisCilja(zamjena ? { ...pv, kg: null } : pv)}</p>
+          {zamjena && <p className="truncate text-xs text-amber-200">umjesto: {pv.vjezba?.naziv ?? "vježba iz plana"}</p>}
+        </div>
+        <span
+          className={`shrink-0 rounded-xl px-2.5 py-1 text-sm font-semibold tabular-nums ${
+            gotovo ? "bg-emerald-500/20 text-emerald-300" : "bg-povrsina-2 text-tekst-2"
+          }`}
+        >
+          {gotovo ? "✓" : `${odradeno}/${pv.serije}`}
+        </span>
+      </button>
+    );
+  }
 }

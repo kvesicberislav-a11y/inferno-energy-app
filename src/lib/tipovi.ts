@@ -9,6 +9,8 @@ export type Profil = {
   kreirano: string;
   /** klijent: trenira uživo s trenerom ili online */
   nacin?: "uzivo" | "online";
+  /** klijent u arhivi (od kada), inače null */
+  arhivirano?: string | null;
 };
 
 export type Pozivnica = {

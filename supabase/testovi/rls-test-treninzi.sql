@@ -76,7 +76,7 @@ begin
   insert into public.odradjene_serije (trening_id, vjezba_id, redni_broj, ponavljanja, kg) values (t_id, v_id, 1, 10, 60) returning id into s_id;
   -- isto kao upsert iz aplikacije
   insert into public.odradjene_serije (trening_id, vjezba_id, redni_broj, ponavljanja, kg) values (t_id, v_id, 1, 9, 62.5)
-    on conflict (trening_id, vjezba_id, redni_broj) do update set ponavljanja = excluded.ponavljanja, kg = excluded.kg;
+    on conflict (trening_id, plan_vjezba_id, vjezba_id, redni_broj) do update set ponavljanja = excluded.ponavljanja, kg = excluded.kg;
   insert into public.treninzi (klijent_id, plan_dan_id, naziv) values (klijent, dan_a, 'Noge')
     on conflict (klijent_id, datum, plan_dan_id) do update set naziv = excluded.naziv;
   select count(*) into n from public.odradjene_serije where trening_id = t_id and ponavljanja = 9 and kg = 62.5;

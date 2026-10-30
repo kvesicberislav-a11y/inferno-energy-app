@@ -9,10 +9,9 @@ type Stavka = { href: string; oznaka: string; aktivnoZa: string[]; poruke?: true
 
 const STAVKE: Record<Uloga, Stavka[]> = {
   trener: [
-    { href: "/trener", oznaka: "Klijenti", aktivnoZa: ["/trener", "/trener/klijent"] },
+    { href: "/trener", oznaka: "Klijenti", aktivnoZa: ["/trener", "/trener/klijent", "/trener/plan"] },
     { href: "/trener/raspored", oznaka: "Raspored", aktivnoZa: ["/trener/raspored"] },
     { href: "/trener/vjezbe", oznaka: "Vježbe", aktivnoZa: ["/trener/vjezbe"] },
-    { href: "/trener/planovi", oznaka: "Planovi", aktivnoZa: ["/trener/planovi", "/trener/plan"] },
     { href: "/trener/poruke", oznaka: "Poruke", aktivnoZa: ["/trener/poruke"], poruke: true },
   ],
   klijent: [

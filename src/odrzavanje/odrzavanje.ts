@@ -13,6 +13,9 @@ const URL_BAZE = "https://ifqoqzcsdwnkezvfuobv.supabase.co";
 const ADRESA_APLIKACIJE = "https://inferno-energy-app.kvesic-berislav.workers.dev";
 
 /** Tablice za kopiju (push_pretplate namjerno ne – uređaji se sami ponovno prijave). */
+/** Tablice bez stupca id – stalni redoslijed za kopiju u dijelovima. */
+const REDOSLIJED: Record<string, string> = { bazne_vjezbe: "klijent_id,vjezba_id" };
+
 export const TABLICE = [
   "profili",
   "pozivnice",
@@ -20,6 +23,7 @@ export const TABLICE = [
   "obroci",
   "namirnice",
   "vjezbe",
+  "bazne_vjezbe",
   "planovi",
   "plan_dani",
   "plan_vjezbe",
@@ -146,7 +150,7 @@ export async function dnevnoOdrzavanje(
         let ukupno: number | null = null;
         do {
           const r = await fetch(
-            `${url}/rest/v1/${tablica}?select=*&order=id&limit=${REDOVA_PO_DIJELU}&offset=${od}`,
+            `${url}/rest/v1/${tablica}?select=*&order=${REDOSLIJED[tablica] ?? "id"}&limit=${REDOVA_PO_DIJELU}&offset=${od}`,
             // JSON čuva točne vrijednosti (prazno/null, brojevi) – baza ga vraća izravno (json_populate_recordset)
             { headers: { ...zaglavlja, Accept: "application/json", Prefer: "count=exact" } },
           );

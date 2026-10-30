@@ -1,40 +1,42 @@
 "use client";
 
 import { useState } from "react";
-import { DodatniTermin } from "@/components/raspored/DodatniTermin";
-import { PopisTermina } from "@/components/raspored/PopisTermina";
+import { NoviTermin } from "@/components/raspored/NoviTermin";
 import { TerminRadnje } from "@/components/raspored/TerminRadnje";
+import { TjednaMreza } from "@/components/raspored/TjednaMreza";
 import { useRaspored } from "@/components/raspored/useRaspored";
+import { useDanas } from "@/components/useDanas";
 import { Zaglavlje } from "@/components/Zaglavlje";
 import { Zasticeno } from "@/components/Zasticeno";
-import { Gumb, Kartica, Poruka, Stranica, Ucitavanje } from "@/components/ui";
-import { danMjesec, danasZagreb, dodajDane, ponedjeljak } from "@/lib/datum";
+import { Gumb, Poruka, Stranica, Ucitavanje } from "@/components/ui";
+import { danMjesec, dodajDane, ponedjeljak } from "@/lib/datum";
 import type { Termin } from "@/lib/raspored";
 
 function TjedniRaspored() {
-  const danas = danasZagreb();
-  const [pon, setPon] = useState(() => ponedjeljak(danasZagreb()));
+  const danas = useDanas();
+  const [pon, setPon] = useState(() => ponedjeljak(danas));
   const ned = dodajDane(pon, 6);
   const { raspored, osvjezi } = useRaspored(null, pon, ned);
   const [odabrani, setOdabrani] = useState<Termin | null>(null);
-  const [dodatni, setDodatni] = useState(false);
+  const [novi, setNovi] = useState<{ datum: string; vrijeme: string } | null>(null);
   const [obavijest, setObavijest] = useState<string | null>(null);
 
   function gotovo(poruka: string) {
     setOdabrani(null);
-    setDodatni(false);
+    setNovi(null);
     setObavijest(poruka);
     osvjezi();
   }
 
   const aktivni = raspored?.termini.filter((t) => !t.otkazan).length ?? 0;
   const brojKlijenata = raspored ? new Set(raspored.termini.filter((t) => !t.otkazan).map((t) => t.klijentId)).size : 0;
+  const ovajTjedan = pon === ponedjeljak(danas);
 
   return (
     <>
       <div className="flex items-center justify-between gap-3 pt-1">
         <h1 className="text-2xl font-bold">Raspored</h1>
-        <Gumb malen onClick={() => setDodatni(true)}>
+        <Gumb malen onClick={() => setNovi({ datum: pon > danas ? pon : danas, vrijeme: "18:00" })}>
           + Termin
         </Gumb>
       </div>
@@ -49,9 +51,10 @@ function TjedniRaspored() {
           ‹
         </button>
         <button type="button" onClick={() => setPon(ponedjeljak(danas))} className="flex flex-col items-center">
-          <span className="text-lg font-bold">{pon === ponedjeljak(danas) ? "Ovaj tjedan" : "Tjedan"}</span>
+          <span className="text-lg font-bold">{ovajTjedan ? "Ovaj tjedan" : "Tjedan"}</span>
           <span className="text-sm text-tekst-2">
             {danMjesec(pon)} – {danMjesec(ned)}
+            {!ovajTjedan && " · natrag na danas"}
           </span>
         </button>
         <button
@@ -69,20 +72,27 @@ function TjedniRaspored() {
       {!raspored ? (
         <Ucitavanje />
       ) : (
-        <Kartica className="flex flex-col gap-3">
+        <>
           {raspored.greska && <Poruka tip="greska">{raspored.greska}</Poruka>}
-          <p className="text-sm text-tekst-2">
-            {aktivni} {aktivni === 1 ? "termin" : "termina"} · {brojKlijenata}{" "}
-            {brojKlijenata === 1 ? "klijent" : "klijenata"}
+          <p className="-mb-2 text-sm text-tekst-2">
+            {aktivni} {aktivni === 1 ? "termin" : "termina"} · {brojKlijenata} {brojKlijenata === 1 ? "klijent" : "klijenata"} ·
+            dodirni prazno polje za novi termin
           </p>
-          <PopisTermina
+          <TjednaMreza
+            pon={pon}
+            danas={danas}
             termini={raspored.termini}
             imena={raspored.imena}
-            prikaziIme
-            onOdabir={setOdabrani}
-            prazno="Ovaj tjedan nema termina. Stalne termine postavljaš na stranici klijenta (kartica Treninzi)."
+            onTermin={setOdabrani}
+            onPrazno={(datum, vrijeme) => setNovi({ datum, vrijeme })}
           />
-        </Kartica>
+          <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-tekst-2">
+            <Legenda boja="border-vatra/60 bg-vatra/30">svaki tjedan</Legenda>
+            <Legenda boja="border-sky-400/60 bg-sky-500/25">jednom</Legenda>
+            <Legenda boja="border-amber-400/60 bg-amber-400/25">pomaknut</Legenda>
+            <Legenda boja="border-zinc-600 bg-zinc-700/40">otkazan</Legenda>
+          </div>
+        </>
       )}
 
       {odabrani && raspored && (
@@ -93,15 +103,19 @@ function TjedniRaspored() {
           onZatvori={() => setOdabrani(null)}
         />
       )}
-      {dodatni && (
-        <DodatniTermin
-          klijentId={null}
-          pocetniDatum={pon > danas ? pon : danas}
-          onGotovo={gotovo}
-          onZatvori={() => setDodatni(false)}
-        />
+      {novi && (
+        <NoviTermin datum={novi.datum} vrijeme={novi.vrijeme} onGotovo={gotovo} onZatvori={() => setNovi(null)} />
       )}
     </>
+  );
+}
+
+function Legenda({ boja, children }: { boja: string; children: string }) {
+  return (
+    <span className="flex items-center gap-1.5">
+      <span className={`h-3 w-3 rounded border ${boja}`} aria-hidden="true" />
+      {children}
+    </span>
   );
 }
 

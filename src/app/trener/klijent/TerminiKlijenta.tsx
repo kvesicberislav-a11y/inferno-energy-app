@@ -4,7 +4,7 @@ import { useState } from "react";
 import { DodatniTermin } from "@/components/raspored/DodatniTermin";
 import { PopisTermina } from "@/components/raspored/PopisTermina";
 import { TerminRadnje } from "@/components/raspored/TerminRadnje";
-import { obavijestiKlijenta, useRaspored } from "@/components/raspored/useRaspored";
+import { obavijestiKlijenta, ukiniPravilo, useRaspored } from "@/components/raspored/useRaspored";
 import { Cip, Gumb, Kartica, Poruka } from "@/components/ui";
 import { danasZagreb, dodajDane } from "@/lib/datum";
 import { prevediGresku } from "@/lib/greske";
@@ -34,13 +34,8 @@ export function TerminiKlijenta({ klijentId, ime }: { klijentId: string; ime: st
   async function ukloni(p: Pravilo) {
     if (!window.confirm(`Ukinuti stalni termin: ${opisPravila(p)}?`)) return;
     setGreska(null);
-    // Termin završava jučer – prošli termini ostaju u rasporedu. Ako još nije ni počeo, briše se.
-    const jucer = dodajDane(danasZagreb(), -1);
-    const { error } =
-      p.od_datuma > jucer
-        ? await supabase().from("termini_pravila").delete().eq("id", p.id)
-        : await supabase().from("termini_pravila").update({ do_datuma: jucer }).eq("id", p.id);
-    if (error) return setGreska(prevediGresku(error.message));
+    const g = await ukiniPravilo(p);
+    if (g) return setGreska(g);
     gotovo(await obavijestiKlijenta(klijentId, `Ukinut je stalni termin: ${opisPravila(p)}.`));
   }
 

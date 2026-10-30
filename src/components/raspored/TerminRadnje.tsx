@@ -5,9 +5,9 @@ import { Ploca } from "@/components/Ploca";
 import { Gumb, Poruka } from "@/components/ui";
 import { danasZagreb, dodajDane } from "@/lib/datum";
 import { prevediGresku } from "@/lib/greske";
-import { opisTermina, type Termin } from "@/lib/raspored";
+import { opisPravila, opisTermina, type Termin } from "@/lib/raspored";
 import { supabase } from "@/lib/supabase/client";
-import { obavijestiKlijenta } from "./useRaspored";
+import { obavijestiKlijenta, ukiniPravilo } from "./useRaspored";
 
 const POLJE =
   "h-12 w-full rounded-2xl border border-rub bg-povrsina-2 px-4 text-base text-tekst outline-none focus:border-vatra";
@@ -95,6 +95,21 @@ export function TerminRadnje({
     );
   }
 
+  async function ukiniStalni() {
+    const p = termin.pravilo;
+    if (!p || !window.confirm(`Ukinuti stalni termin: ${opisPravila(p)}? Prošli termini ostaju zapisani.`)) return;
+    setGreska(null);
+    setRadi(true);
+    const g = await ukiniPravilo(p);
+    if (g) {
+      setRadi(false);
+      return setGreska(g);
+    }
+    const poruka = await obavijestiKlijenta(termin.klijentId, `Ukinut je stalni termin: ${opisPravila(p)}.`);
+    setRadi(false);
+    onGotovo(poruka);
+  }
+
   function vrati() {
     if (!termin.iznimka) return;
     return izvrsi(
@@ -163,6 +178,11 @@ export function TerminRadnje({
             {!termin.otkazan && (
               <Gumb varijanta="opasni" onClick={otkazi} disabled={radi}>
                 {termin.pravilo ? "Otkaži samo ovaj termin" : "Otkaži (obriši) dodatni termin"}
+              </Gumb>
+            )}
+            {termin.pravilo && (termin.pravilo.do_datuma === null || termin.pravilo.do_datuma >= danasZagreb()) && (
+              <Gumb varijanta="opasni" onClick={ukiniStalni} disabled={radi}>
+                Ukini stalni termin (svaki tjedan)
               </Gumb>
             )}
           </div>
