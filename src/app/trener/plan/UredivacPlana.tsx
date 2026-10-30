@@ -203,7 +203,10 @@ export function UredivacPlana() {
   }
 
   async function spremiVjezbu(pv: PlanVjezba, p: PodaciPlanVjezbe) {
-    const g = await izvrsi(sb.from("plan_vjezbe").update(p).eq("id", pv.id));
+    // kilažu ne diraj ako je u obrascu nije mijenjao (− / + je možda upravo spremio noviju)
+    const { kg, ...ostalo } = p;
+    const promjena = kg === pv.kg ? ostalo : p;
+    const g = await izvrsi(sb.from("plan_vjezbe").update(promjena).eq("id", pv.id));
     if (!g) setForma(null);
     return g;
   }
@@ -418,12 +421,15 @@ export function UredivacPlana() {
                         )}
                       </button>
                       <KgKoraci
-                        key={`${pv.id}|${pv.kg ?? ""}`}
+                        key={pv.id}
                         planVjezbaId={pv.id}
                         kg={pv.kg}
                         maxKg={kilaze.get(pv.vjezba_id)?.maxKg ?? null}
-                        onSpremljeno={(kg) => postaviKgLokalno(pv.id, kg)}
-                        onGreska={setGreska}
+                        onPromjena={(kg) => postaviKgLokalno(pv.id, kg)}
+                        onGreska={(g) => {
+                          setGreska(g);
+                          osvjezi();
+                        }}
                       />
                     </div>
                   ))}

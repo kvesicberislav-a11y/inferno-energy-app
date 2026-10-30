@@ -28,7 +28,12 @@ export function BazneVjezbe({ klijentId, ime }: { klijentId: string; ime: string
             <h3 className="text-lg font-semibold">Bazne vježbe</h3>
             <p className="text-sm text-tekst-2">Vježbe koje {ime.split(" ")[0]} preferira. Od njih slažeš program.</p>
           </div>
-          <button type="button" onClick={() => setUredivanje(true)} className="shrink-0 text-sm font-semibold text-vatra">
+          <button
+            type="button"
+            onClick={() => setUredivanje(true)}
+            disabled={!ucitano || vjezbe === null}
+            className="shrink-0 text-sm font-semibold text-vatra disabled:opacity-40"
+          >
             {bazne.size ? "Uredi" : "+ Dodaj"}
           </button>
         </div>

@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { Ploca } from "@/components/Ploca";
 import { Cip, Gumb, Poruka } from "@/components/ui";
-import { danasZagreb } from "@/lib/datum";
+import { danasZagreb, dodajDane } from "@/lib/datum";
 import { prevediGresku } from "@/lib/greske";
 import { opisTermina } from "@/lib/raspored";
 import { supabase } from "@/lib/supabase/client";
@@ -65,6 +65,9 @@ export function NoviTermin({
     setGreska(null);
     setRadi(true);
     const sb = supabase();
+    // stalni termin ne počinje u prošlosti: prvi isti dan u tjednu od danas nadalje
+    let odDatuma = datum;
+    while (odDatuma < danasZagreb()) odDatuma = dodajDane(odDatuma, 7);
     const { error } = stalni
       ? await sb.from("termini_pravila").insert(
           odabrani.map((k) => ({
@@ -72,7 +75,7 @@ export function NoviTermin({
             dan_u_tjednu: danUTjednu(datum),
             vrijeme,
             trajanje_min: trajanje,
-            od_datuma: datum,
+            od_datuma: odDatuma,
           })),
         )
       : await sb

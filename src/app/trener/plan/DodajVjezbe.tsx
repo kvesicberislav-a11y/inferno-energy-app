@@ -96,7 +96,7 @@ export function DodajVjezbe({
           greskaUcitavanja ? <Poruka tip="greska">{greskaUcitavanja}</Poruka> : <Ucitavanje />
         ) : (
           <>
-            {uSkupini.length + odabrane.length > 8 && (
+            {(upit !== "" || filtrirajVjezbe(vjezbe, "", skupina).length > 8) && (
               <input
                 type="search"
                 aria-label="Pretraži vježbe"

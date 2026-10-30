@@ -119,6 +119,8 @@ export function razvijTermine(
       const datum = iz && !iz.otkazan && iz.novi_datum ? iz.novi_datum : d;
       const vrijeme = iz && !iz.otkazan && iz.novo_vrijeme ? iz.novo_vrijeme : p.vrijeme;
       if (datum < od || datum > doDana) continue;
+      // ukinut stalni termin (ili arhiviran klijent): ni pomaknuti termin ne ide iza zadnjeg dana
+      if (p.do_datuma && datum > p.do_datuma) continue;
       rez.push({
         kljuc: `p|${p.id}|${d}`,
         klijentId: p.klijent_id,
