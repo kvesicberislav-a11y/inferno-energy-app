@@ -86,7 +86,7 @@ export async function dohvatiPodatkeIzvoza(klijentId: string, dana: number | nul
     sveStranice<Red>((a, b) =>
       sb
         .from("treninzi")
-        .select("datum, naziv, zavrsen, odradjene_serije(redni_broj, ponavljanja, kg, vjezba:vjezbe(naziv))")
+        .select("datum, naziv, zavrsen, iz_kalendara, trening_vjezbe(count), odradjene_serije(redni_broj, ponavljanja, kg, vjezba:vjezbe(naziv))")
         .eq("klijent_id", klijentId)
         .gte("datum", od)
         .lte("datum", doDana)
@@ -138,11 +138,17 @@ export async function dohvatiPodatkeIzvoza(klijentId: string, dana: number | nul
   // Pridržavanje (isto kao na kartici Napredak)
   type DodjelaR = { od_datuma: string; do_datuma: string | null; plan: unknown };
   const dodjele = ((dodjeleR.data as DodjelaR[] | null) ?? []).map(uDodjeluZaPridrzavanje);
+  // treninzi koje je trener složio u kalendaru (klijenti uživo)
+  const izKalendara = new Set(
+    treninziR
+      .filter((t) => Boolean(t.iz_kalendara) && Number((t.trening_vjezbe as { count: number }[] | null)?.[0]?.count ?? 0) > 0)
+      .map((t) => String(t.datum)),
+  );
   const danaURazdoblju = Math.max(0, brojDana(od, doDana));
   let planiranih = 0;
   for (let i = 0; i < danaURazdoblju; i++) {
     const d = dodajDane(od, i);
-    if (dodjele.some((dj) => jePlaniranTrening(dj, d))) planiranih++;
+    if (izKalendara.has(d) || dodjele.some((dj) => jePlaniranTrening(dj, d))) planiranih++;
   }
   const odradenih = new Set(treninzi.filter((t) => t.zavrsen || t.serije.length > 0).map((t) => t.datum)).size;
 

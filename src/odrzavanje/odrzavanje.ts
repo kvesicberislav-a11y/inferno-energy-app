@@ -29,6 +29,7 @@ export const TABLICE = [
   "plan_vjezbe",
   "dodjele_planova",
   "treninzi",
+  "trening_vjezbe",
   "odradjene_serije",
   "zamjene_vjezbi",
   "mjerenja",

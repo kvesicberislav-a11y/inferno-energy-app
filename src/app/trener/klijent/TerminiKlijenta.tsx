@@ -4,7 +4,7 @@ import { useState } from "react";
 import { DodatniTermin } from "@/components/raspored/DodatniTermin";
 import { PopisTermina } from "@/components/raspored/PopisTermina";
 import { TerminRadnje } from "@/components/raspored/TerminRadnje";
-import { obavijestiKlijenta, ukiniPravilo, useRaspored } from "@/components/raspored/useRaspored";
+import { obavijestiKlijenta, ocistiPlanoveBezTermina, ukiniPravilo, useRaspored } from "@/components/raspored/useRaspored";
 import { Cip, Gumb, Kartica, Poruka } from "@/components/ui";
 import { danasZagreb, dodajDane } from "@/lib/datum";
 import { prevediGresku } from "@/lib/greske";
@@ -36,6 +36,7 @@ export function TerminiKlijenta({ klijentId, ime }: { klijentId: string; ime: st
     setGreska(null);
     const g = await ukiniPravilo(p);
     if (g) return setGreska(g);
+    await ocistiPlanoveBezTermina(klijentId, danasZagreb()).catch(() => undefined);
     gotovo(await obavijestiKlijenta(klijentId, `Ukinut je stalni termin: ${opisPravila(p)}.`));
   }
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { danMjesec, dodajDane, vrijemeZagreb } from "@/lib/datum";
+import { kljucTreninga, kratkeSkupine } from "@/lib/kalendar";
 import { jePomaknut, type Termin } from "@/lib/raspored";
 import { DANI_KRATKO } from "@/lib/treninzi";
 
@@ -50,11 +51,17 @@ export function TjednaMreza({
   imena,
   onTermin,
   onPrazno,
+  oznake = {},
+  istaknut,
 }: {
   pon: string;
   danas: string;
   termini: Termin[];
   imena: Record<string, string>;
+  /** trening iz kalendara po terminu (ključ klijent|datum): skupine i je li završen */
+  oznake?: Record<string, { skupine: string[]; zavrsen: boolean }>;
+  /** filter: termini koji ne odgovaraju prikazuju se posivljeno */
+  istaknut?: (t: Termin) => boolean;
   onTermin: (t: Termin) => void;
   onPrazno: (datum: string, vrijeme: string) => void;
 }) {
@@ -130,6 +137,8 @@ export function TjednaMreza({
                       .map((d) => d[0]?.toUpperCase())
                       .join("")
                   : puno.split(" ")[0];
+              const oznaka = oznake[kljucTreninga(t.klijentId, t.datum)];
+              const prigusen = istaknut ? !istaknut(t) : false;
               const boja = t.otkazan
                 ? "border-zinc-600 bg-zinc-700/40 text-tekst-2 line-through"
                 : jePomaknut(t)
@@ -143,7 +152,9 @@ export function TjednaMreza({
                   type="button"
                   onClick={() => onTermin(t)}
                   title={`${imena[t.klijentId] ?? "Klijent"} · ${t.vrijeme}`}
-                  className={`absolute z-20 overflow-hidden rounded-md border px-0.5 text-left leading-tight active:scale-[0.97] ${boja}`}
+                  className={`absolute z-20 overflow-hidden rounded-md border px-0.5 text-left leading-tight active:scale-[0.97] ${boja} ${
+                    prigusen ? "opacity-25" : ""
+                  }`}
                   style={{
                     top: vrh + 1,
                     height: vis,
@@ -151,10 +162,16 @@ export function TjednaMreza({
                     width: `calc(${100 / stupaca}% - 2px)`,
                   }}
                 >
-                  <span className="block truncate text-[11px] font-semibold">{ime}</span>
-                  {vis >= 34 && stupaca === 1 && (
-                    <span className="block truncate text-[10px] opacity-80 tabular-nums">{t.vrijeme}</span>
-                  )}
+                  <span className="block truncate text-[11px] font-semibold">
+                    {oznaka?.zavrsen ? "✓ " : ""}
+                    {ime}
+                  </span>
+                  {vis >= 34 &&
+                    (oznaka?.skupine.length ? (
+                      <span className="block truncate text-[10px] font-medium opacity-90">{kratkeSkupine(oznaka.skupine)}</span>
+                    ) : (
+                      stupaca === 1 && <span className="block truncate text-[10px] opacity-80 tabular-nums">{t.vrijeme}</span>
+                    ))}
                 </button>
               );
             })}

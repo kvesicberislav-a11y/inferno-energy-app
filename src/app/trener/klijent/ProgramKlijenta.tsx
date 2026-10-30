@@ -51,7 +51,16 @@ async function dohvati(klijentId: string): Promise<Podaci> {
 }
 
 /** Trener: program treninga klijenta (izrada, kopiranje od drugog klijenta, uređivanje). */
-export function ProgramKlijenta({ klijentId, ime }: { klijentId: string; ime: string }) {
+export function ProgramKlijenta({
+  klijentId,
+  ime,
+  samoAkoPostoji = false,
+}: {
+  klijentId: string;
+  ime: string;
+  /** klijent uživo: prikaži karticu samo ako mu je ostao stari program (da ga se može ukloniti) */
+  samoAkoPostoji?: boolean;
+}) {
   const danas = useDanas();
   const [podaci, setPodaci] = useState<Podaci | null>(null);
   const [verzija, setVerzija] = useState(0);
@@ -80,6 +89,7 @@ export function ProgramKlijenta({ klijentId, ime }: { klijentId: string; ime: st
   const program = spremno ? podaci.program : null;
   const tjedan = program ? tjedanCiklusa({ ciklus_tjedana: program.ciklus, pocetak: program.pocetak }, danas) : 1;
   const ovajTjedan = program?.dani.filter((d) => d.tjedan === tjedan) ?? [];
+  if (samoAkoPostoji && (!spremno || !program)) return null;
 
   return (
     <>
@@ -123,8 +133,11 @@ export function ProgramKlijenta({ klijentId, ime }: { klijentId: string; ime: st
         )}
 
         {greska && <Poruka tip="greska">{greska}</Poruka>}
+        {samoAkoPostoji && (
+          <Poruka>Klijent je uživo, pa ovaj program ne vidi. Treninge mu slažeš u Rasporedu. Program možeš ukloniti.</Poruka>
+        )}
 
-        {spremno && (
+        {spremno && !samoAkoPostoji && (
           <div className="grid grid-cols-2 gap-2">
             {program ? (
               <>

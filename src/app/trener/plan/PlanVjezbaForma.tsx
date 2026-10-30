@@ -23,8 +23,11 @@ export function PlanVjezbaForma({
   onUkloni,
   onPomakni,
   onZatvori,
+  mjesto = "program",
 }: {
   vjezba: Vjezba;
+  /** gdje je vježba: u programu (online) ili u treningu iz kalendara */
+  mjesto?: "program" | "trening";
   pocetno: PodaciPlanVjezbe | null;
   /** najveća i zadnja kilaža klijenta na ovoj vježbi */
   kilaza: Kilaza | null;
@@ -65,7 +68,7 @@ export function PlanVjezbaForma({
   }
 
   async function ukloni() {
-    if (!onUkloni || !window.confirm(`Ukloniti „${vjezba.naziv}” iz programa?`)) return;
+    if (!onUkloni || !window.confirm(`Ukloniti „${vjezba.naziv}” iz ${mjesto === "program" ? "programa" : "treninga"}?`)) return;
     setSalje(true);
     const g = await onUkloni();
     setSalje(false);
@@ -150,7 +153,7 @@ export function PlanVjezbaForma({
         />
         {greska && <Poruka tip="greska">{greska}</Poruka>}
         <Gumb type="submit" disabled={salje}>
-          {salje ? "Spremam…" : pocetno ? "Spremi" : "Dodaj u program"}
+          {salje ? "Spremam…" : pocetno ? "Spremi" : mjesto === "program" ? "Dodaj u program" : "Dodaj u trening"}
         </Gumb>
         {onPomakni && (onPomakni.gore || onPomakni.dolje) && (
           <div className="grid grid-cols-2 gap-3">
@@ -164,7 +167,7 @@ export function PlanVjezbaForma({
         )}
         {onUkloni && (
           <Gumb type="button" varijanta="opasni" onClick={ukloni} disabled={salje}>
-            Ukloni iz programa
+            {mjesto === "program" ? "Ukloni iz programa" : "Ukloni iz treninga"}
           </Gumb>
         )}
       </form>

@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { Gumb, Poruka } from "@/components/ui";
-import { formatDatum } from "@/lib/datum";
+import { ocistiPlanoveBezTermina } from "@/components/raspored/useRaspored";
+import { danasZagreb, formatDatum } from "@/lib/datum";
 import { prevediGresku } from "@/lib/greske";
 import { supabase } from "@/lib/supabase/client";
 
@@ -40,6 +41,8 @@ export function ArhivaKlijenta({
     const { error } = await supabase().rpc("arhiviraj_klijenta", { p_klijent: klijentId, p_arhiviraj: arhiviraj });
     setRadi(false);
     if (error) return setGreska(prevediGresku(error.message));
+    // prazni planovi budućih treninga (termini su ukinuti) se brišu
+    if (arhiviraj) await ocistiPlanoveBezTermina(klijentId, danasZagreb()).catch(() => undefined);
     onPromjena(arhiviraj ? new Date().toISOString() : null);
   }
 

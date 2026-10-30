@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Kartica, Poruka } from "@/components/ui";
-import { opisDana } from "@/lib/datum";
+import { danasZagreb, opisDana } from "@/lib/datum";
 import { prevediGresku } from "@/lib/greske";
 import { formatG } from "@/lib/makroi";
 import { supabase } from "@/lib/supabase/client";
@@ -16,15 +16,19 @@ const KORAK = 10;
 async function dohvati(klijentId: string, broj: number): Promise<Podaci> {
   const { data, error } = await supabase()
     .from("treninzi")
-    .select("id, datum, naziv, zavrsen, odradjene_serije(redni_broj, ponavljanja, kg, vjezba_id, vjezba:vjezbe(naziv))")
+    .select("id, datum, naziv, zavrsen, iz_kalendara, odradjene_serije(redni_broj, ponavljanja, kg, vjezba_id, vjezba:vjezbe(naziv))")
     .eq("klijent_id", klijentId)
+    // samo odrađeni: ne budući ni samo isplanirani treninzi iz kalendara
+    .lte("datum", danasZagreb())
     .order("datum", { ascending: false })
     .limit(broj);
   if (error) return { klijentId, treninzi: [], greska: prevediGresku(error.message) };
   return {
     klijentId,
     greska: null,
-    treninzi: (data ?? []).map((t) => ({
+    treninzi: (data ?? [])
+      .filter((t) => !t.iz_kalendara || t.zavrsen || ((t.odradjene_serije as unknown[] | null) ?? []).length > 0)
+      .map((t) => ({
       id: String(t.id),
       datum: String(t.datum),
       naziv: String(t.naziv ?? ""),

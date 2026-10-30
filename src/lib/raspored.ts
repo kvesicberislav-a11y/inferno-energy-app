@@ -25,6 +25,8 @@ export type Iznimka = {
   pravilo_id: string;
   datum: string;
   otkazan: boolean;
+  /** obrisan termin nestaje iz kalendara (otkazan ostaje precrtan) */
+  obrisan: boolean;
   novi_datum: string | null;
   novo_vrijeme: string | null;
 };
@@ -79,6 +81,7 @@ export function uIznimku(r: Red): Iznimka {
     pravilo_id: String(r.pravilo_id),
     datum: String(r.datum),
     otkazan: Boolean(r.otkazan),
+    obrisan: Boolean(r.obrisan),
     novi_datum: r.novi_datum ? String(r.novi_datum) : null,
     novo_vrijeme: r.novo_vrijeme ? hhmm(r.novo_vrijeme) : null,
   };
@@ -116,6 +119,7 @@ export function razvijTermine(
     const krajPravila = p.do_datuma && p.do_datuma < kraj ? p.do_datuma : kraj;
     for (; d <= krajPravila; d = dodajDane(d, 7)) {
       const iz = poKljucu.get(`${p.id}|${d}`) ?? null;
+      if (iz?.obrisan) continue;
       const datum = iz && !iz.otkazan && iz.novi_datum ? iz.novi_datum : d;
       const vrijeme = iz && !iz.otkazan && iz.novo_vrijeme ? iz.novo_vrijeme : p.vrijeme;
       if (datum < od || datum > doDana) continue;

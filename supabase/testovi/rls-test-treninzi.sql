@@ -88,7 +88,8 @@ begin
   insert into rez (test, rezultat) values ('trener vidi serije klijenta', case when n = 1 then 'OK' else 'GRESKA ' || n end);
   update public.odradjene_serije set kg = 999 where id = s_id;
   get diagnostics n = row_count;
-  insert into rez (test, rezultat) values ('trener NE mijenja serije klijenta', case when n = 0 then 'OK' else 'GRESKA' end);
+  -- od 2026-10-30 trener smije ispravljati serije (na treningu upisuje on)
+  insert into rez (test, rezultat) values ('trener smije ispraviti seriju klijenta', case when n = 1 then 'OK' else 'GRESKA' end);
 
   -- zamjena plana isti dan: stara dodjela se brise, nova je aktivna
   perform public.dodijeli_plan(klijent, plan_b);

@@ -18,7 +18,7 @@ const REDOVA_PO_DIJELU = 20_000;
 // redoslijed poštuje veze među tablicama (isti kao u src/odrzavanje/odrzavanje.ts)
 const TABLICE = [
   "profili", "pozivnice", "ciljevi_makroa", "obroci", "namirnice", "vjezbe", "bazne_vjezbe", "planovi", "plan_dani",
-  "plan_vjezbe", "dodjele_planova", "treninzi", "odradjene_serije", "zamjene_vjezbi", "mjerenja",
+  "plan_vjezbe", "dodjele_planova", "treninzi", "trening_vjezbe", "odradjene_serije", "zamjene_vjezbi", "mjerenja",
   "slike_napretka", "biljeske_trenera", "termini_pravila", "termini_iznimke", "termini_dodatni", "poruke",
 ];
 

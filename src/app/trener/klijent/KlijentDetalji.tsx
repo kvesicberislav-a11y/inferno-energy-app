@@ -214,7 +214,22 @@ export function KlijentDetalji() {
           ) : (
             <p className="text-sm text-tekst-2">Online klijent – termini s tobom vode se samo za klijente uživo.</p>
           )}
-          <ProgramKlijenta klijentId={profil.id} ime={ime} />
+          {(profil.nacin ?? "uzivo") === "uzivo" ? (
+            <Link
+              href="/trener/raspored"
+              className="flex items-center justify-between gap-3 rounded-3xl border border-rub bg-povrsina p-5 active:scale-[0.99]"
+            >
+              <span>
+                <span className="block text-lg font-semibold">Treninzi u kalendaru</span>
+                <span className="block text-sm text-tekst-2">
+                  Klijent uživo: trening slažeš i upisuješ u Rasporedu. Dodirni njegov termin.
+                </span>
+              </span>
+              <span className="text-2xl text-tekst-2">›</span>
+            </Link>
+          ) : null}
+          {/* uživo: kartica programa samo ako mu je ostao stari program (da ga se može ukloniti) */}
+          <ProgramKlijenta klijentId={profil.id} ime={ime} samoAkoPostoji={(profil.nacin ?? "uzivo") === "uzivo"} />
           <BazneVjezbe klijentId={profil.id} ime={ime} />
           <PovijestTreninga klijentId={profil.id} />
           <VjezbeKlijenta klijentId={profil.id} />

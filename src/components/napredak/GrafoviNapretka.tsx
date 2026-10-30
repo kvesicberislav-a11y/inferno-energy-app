@@ -262,7 +262,11 @@ function Pridrzavanje({
   const sUnosom = razdoblje.filter((d) => daniSObrokom.has(d)).length;
   const prehrana = razdoblje.length ? (sUnosom / razdoblje.length) * 100 : null;
 
-  const planirani = razdoblje.filter((d) => statistika.dodjele.some((dj) => jePlaniranTrening(dj, d))).length;
+  // planiran: po programu (online) ili trening koji je trener složio u kalendaru (uživo)
+  const izKalendara = new Set(statistika.treninzi.filter((t) => t.planiran).map((t) => t.datum));
+  const planirani = razdoblje.filter(
+    (d) => izKalendara.has(d) || statistika.dodjele.some((dj) => jePlaniranTrening(dj, d)),
+  ).length;
   const odradeni = new Set(statistika.treninzi.filter((t) => t.odraden && t.datum >= pocetak).map((t) => t.datum)).size;
   const treninzi = planirani ? Math.min(100, (odradeni / planirani) * 100) : null;
 

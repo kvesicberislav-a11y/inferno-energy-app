@@ -3,11 +3,11 @@
 import { useState } from "react";
 import { Ploca } from "@/components/Ploca";
 import { Gumb, Poruka } from "@/components/ui";
-import { danasZagreb, dodajDane } from "@/lib/datum";
+import { danMjesec, danasZagreb, dodajDane } from "@/lib/datum";
 import { prevediGresku } from "@/lib/greske";
 import { opisPravila, opisTermina, type Termin } from "@/lib/raspored";
 import { supabase } from "@/lib/supabase/client";
-import { obavijestiKlijenta, ukiniPravilo } from "./useRaspored";
+import { obavijestiKlijenta, ocistiPlanoveBezTermina } from "./useRaspored";
 
 const POLJE =
   "h-12 w-full rounded-2xl border border-rub bg-povrsina-2 px-4 text-base text-tekst outline-none focus:border-vatra";
@@ -32,7 +32,12 @@ export function TerminRadnje({
   const sb = supabase();
   const izvorni = { datum: termin.izvorniDatum ?? termin.datum, vrijeme: termin.pravilo?.vrijeme ?? termin.vrijeme };
 
-  async function izvrsi(akcija: () => PromiseLike<{ error: { message: string } | null }>, promjena: string) {
+  async function izvrsi(
+    akcija: () => PromiseLike<{ error: { message: string } | null }>,
+    promjena: string,
+    /** nakon uspjeha: plan treninga prati termin (pomak / brisanje); može vratiti upozorenje */
+    nakon?: () => Promise<string | void>,
+  ) {
     setGreska(null);
     setRadi(true);
     const { error } = await akcija();
@@ -40,9 +45,18 @@ export function TerminRadnje({
       setRadi(false);
       return setGreska(prevediGresku(error.message));
     }
+    const upozorenje = nakon ? await nakon().catch(() => undefined) : undefined;
     const poruka = await obavijestiKlijenta(termin.klijentId, promjena);
     setRadi(false);
-    onGotovo(poruka);
+    onGotovo(upozorenje ? `${poruka} ${upozorenje}` : poruka);
+  }
+
+  /** Plan treninga ide s terminom na drugi dan (ako taj dan već nema svoj plan). */
+  async function premjestiPlan(iz: string, u: string): Promise<string | void> {
+    const { data, error } = await sb.rpc("premjesti_trening", { p_klijent: termin.klijentId, p_iz: iz, p_u: u });
+    if (error || data === false) {
+      return `Pažnja: plan treninga ostao je na ${danMjesec(iz)}, jer ${danMjesec(u)} već ima svoj plan.`;
+    }
   }
 
   function otkazi() {
@@ -57,6 +71,7 @@ export function TerminRadnje({
               { onConflict: "pravilo_id,datum" },
             ),
         `Otkazan je termin: ${opisTermina(termin)}.`,
+        termin.datum !== izvorni.datum ? () => premjestiPlan(termin.datum, izvorni.datum) : undefined,
       );
     }
     return izvrsi(
@@ -64,6 +79,9 @@ export function TerminRadnje({
       `Otkazan je termin: ${opisTermina(termin)}.`,
     );
   }
+
+  // plan treninga ide s terminom na novi dan
+  const premjestiTrening = () => premjestiPlan(termin.datum, noviDatum);
 
   function pomakni() {
     if (!noviDatum || !novoVrijeme) return setGreska("Odaberi datum i vrijeme.");
@@ -87,34 +105,76 @@ export function TerminRadnje({
               { onConflict: "pravilo_id,datum" },
             ),
         `Termin ${opisTermina(izvorni)} pomaknut je na ${opisTermina(novo)}.`,
+        premjestiTrening,
       );
     }
     return izvrsi(
       () => sb.from("termini_dodatni").update({ datum: noviDatum, vrijeme: novoVrijeme }).eq("id", termin.dodatni!.id),
       `Termin ${opisTermina(termin)} pomaknut je na ${opisTermina(novo)}.`,
+      premjestiTrening,
     );
   }
 
-  async function ukiniStalni() {
-    const p = termin.pravilo;
-    if (!p || !window.confirm(`Ukinuti stalni termin: ${opisPravila(p)}? Prošli termini ostaju zapisani.`)) return;
-    setGreska(null);
-    setRadi(true);
-    const g = await ukiniPravilo(p);
-    if (g) {
-      setRadi(false);
-      return setGreska(g);
+  /** Obriši samo ovaj termin – nestaje iz kalendara (i kod klijenta), mjesto je slobodno. */
+  function obrisiOvaj() {
+    if (!window.confirm(`Obrisati termin ${opisTermina(termin)}? Nestat će iz kalendara.`)) return;
+    if (termin.pravilo) {
+      return izvrsi(
+        () =>
+          sb.from("termini_iznimke").upsert(
+            {
+              pravilo_id: termin.pravilo!.id,
+              datum: izvorni.datum,
+              otkazan: true,
+              obrisan: true,
+              novi_datum: null,
+              novo_vrijeme: null,
+            },
+            { onConflict: "pravilo_id,datum" },
+          ),
+        `Otkazan je termin: ${opisTermina(termin)}.`,
+        ukloniPlan,
+      );
     }
-    const poruka = await obavijestiKlijenta(termin.klijentId, `Ukinut je stalni termin: ${opisPravila(p)}.`);
-    setRadi(false);
-    onGotovo(poruka);
+    return izvrsi(
+      () => sb.from("termini_dodatni").delete().eq("id", termin.dodatni!.id),
+      `Otkazan je termin: ${opisTermina(termin)}.`,
+      ukloniPlan,
+    );
+  }
+
+  // prazan plan treninga bez termina se briše (upisane serije ostaju zauvijek)
+  const ukloniPlan = () => ocistiPlanoveBezTermina(termin.klijentId, termin.datum);
+
+  /** Obriši ovaj i sve sljedeće termine stalnog termina (raniji ostaju). Ako je ovo prvi, briše se cijeli. */
+  function obrisiOdOvog() {
+    const p = termin.pravilo;
+    if (!p) return;
+    if (
+      !window.confirm(
+        `Obrisati stalni termin (${opisPravila(p)}) od ${opisTermina(izvorni)} nadalje? Svi ti termini nestaju iz kalendara.`,
+      )
+    ) {
+      return;
+    }
+    const prvi = dodajDane(izvorni.datum, -7) < p.od_datuma;
+    return izvrsi(
+      () =>
+        prvi
+          ? sb.from("termini_pravila").delete().eq("id", p.id)
+          : sb.from("termini_pravila").update({ do_datuma: dodajDane(izvorni.datum, -1) }).eq("id", p.id),
+      `Ukinut je stalni termin (${opisPravila(p)}) od ${opisTermina(izvorni)}.`,
+      () => ocistiPlanoveBezTermina(termin.klijentId, [izvorni.datum, termin.datum].sort()[0]),
+    );
   }
 
   function vrati() {
     if (!termin.iznimka) return;
+    const bioPomaknut = !termin.iznimka.otkazan;
     return izvrsi(
       () => sb.from("termini_iznimke").delete().eq("id", termin.iznimka!.id),
       `Termin ${opisTermina(izvorni)} ipak ostaje u uobičajeno vrijeme.`,
+      bioPomaknut ? () => premjestiPlan(termin.datum, izvorni.datum) : undefined,
     );
   }
 
@@ -175,16 +235,20 @@ export function TerminRadnje({
                 {termin.otkazan ? "Vrati termin (ipak se održava)" : "Vrati na uobičajeno vrijeme"}
               </Gumb>
             )}
-            {!termin.otkazan && (
-              <Gumb varijanta="opasni" onClick={otkazi} disabled={radi}>
-                {termin.pravilo ? "Otkaži samo ovaj termin" : "Otkaži (obriši) dodatni termin"}
+            {termin.pravilo && !termin.otkazan && (
+              <Gumb varijanta="sporedni" onClick={otkazi} disabled={radi}>
+                Otkaži samo ovaj (ostaje precrtan)
               </Gumb>
             )}
-            {termin.pravilo && (termin.pravilo.do_datuma === null || termin.pravilo.do_datuma >= danasZagreb()) && (
-              <Gumb varijanta="opasni" onClick={ukiniStalni} disabled={radi}>
-                Ukini stalni termin (svaki tjedan)
+            <Gumb varijanta="opasni" onClick={obrisiOvaj} disabled={radi}>
+              {termin.pravilo ? "Obriši samo ovaj termin" : "Obriši termin"}
+            </Gumb>
+            {termin.pravilo && (
+              <Gumb varijanta="opasni" onClick={obrisiOdOvog} disabled={radi}>
+                Obriši ovaj i sve sljedeće
               </Gumb>
             )}
+            <p className="text-center text-xs text-tekst-2">Obrisani termin nestaje iz kalendara i mjesto je slobodno.</p>
           </div>
         )}
       </div>

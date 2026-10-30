@@ -52,10 +52,11 @@ export function useBazneIKilaze(klijentId: string | null) {
   };
 }
 
-/** "max 80 kg × 5" (ili null ako klijent još nije radio tu vježbu s kilažom) */
+/** "max 80 kg × 6 · 4 serije" (ili null ako klijent još nije radio tu vježbu s kilažom) */
 export function kratkoMax(k: Kilaza | null | undefined) {
   if (!k || k.maxKg === null) return null;
-  return `max ${formatG(k.maxKg)} kg × ${k.maxPonavljanja ?? "?"}`;
+  const serije = k.maxSerija ? ` · ${k.maxSerija} ${k.maxSerija === 1 ? "serija" : k.maxSerija < 5 ? "serije" : "serija"}` : "";
+  return `max ${formatG(k.maxKg)} kg × ${k.maxPonavljanja ?? "?"}${serije}`;
 }
 
 /** "Najviše 80 kg × 5 (12. 10.) · zadnje 75 kg × 8 (20. 10.)" */
@@ -63,7 +64,11 @@ export function opisKilaze(k: Kilaza | null | undefined) {
   if (!k) return "Klijent još nije radio ovu vježbu.";
   const dijelovi: string[] = [];
   if (k.maxKg !== null) {
-    dijelovi.push(`Najviše ${formatG(k.maxKg)} kg × ${k.maxPonavljanja ?? "?"}${k.maxDatum ? ` (${danMjesec(k.maxDatum)})` : ""}`);
+    dijelovi.push(
+      `Najviše ${formatG(k.maxKg)} kg × ${k.maxPonavljanja ?? "?"}${k.maxSerija ? `, ${k.maxSerija} ser.` : ""}${
+        k.maxDatum ? ` (${danMjesec(k.maxDatum)})` : ""
+      }`,
+    );
   }
   if (k.zadnjaKg !== null && k.zadnjiDatum && k.zadnjiDatum !== k.maxDatum) {
     dijelovi.push(`zadnje ${formatG(k.zadnjaKg)} kg × ${k.zadnjaPonavljanja ?? "?"} (${danMjesec(k.zadnjiDatum)})`);

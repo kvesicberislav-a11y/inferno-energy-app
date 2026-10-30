@@ -8,7 +8,8 @@ import { uDodjeluZaPridrzavanje } from "@/lib/treninzi";
 
 export type DanMakroa = { datum: string; kcal: number; proteini: number; ugljikohidrati: number; masti: number };
 export type TjedanVolumena = { tjedan: string; volumen: number; serija: number; treninga: number };
-export type DanTreninga = { datum: string; odraden: boolean };
+/** planiran = trening iz kalendara koji je trener složio (klijenti uživo) */
+export type DanTreninga = { datum: string; odraden: boolean; planiran: boolean };
 export type Dodjela = ReturnType<typeof uDodjeluZaPridrzavanje>;
 
 export type Statistika = {
@@ -34,7 +35,7 @@ async function dohvati(klijentId: string, od: string, doDana: string, kljuc: str
     sb.rpc("tjedni_volumen", { p_klijent: klijentId, p_od: od, p_do: doDana }),
     sb
       .from("treninzi")
-      .select("datum, zavrsen, odradjene_serije(count)")
+      .select("datum, zavrsen, iz_kalendara, odradjene_serije(count), trening_vjezbe(count)")
       .eq("klijent_id", klijentId)
       .gte("datum", od)
       .lte("datum", doDana),
@@ -67,6 +68,8 @@ async function dohvati(klijentId: string, od: string, doDana: string, kljuc: str
       datum: String(r.datum),
       odraden:
         Boolean(r.zavrsen) || Number((r.odradjene_serije as { count: number }[] | null)?.[0]?.count ?? 0) > 0,
+      planiran:
+        Boolean(r.iz_kalendara) && Number((r.trening_vjezbe as { count: number }[] | null)?.[0]?.count ?? 0) > 0,
     })),
     dodjele: (d.data ?? []).map(uDodjeluZaPridrzavanje),
     greska: greska ? prevediGresku(greska.message) : null,

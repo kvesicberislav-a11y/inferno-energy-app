@@ -97,6 +97,38 @@ export async function ukiniPravilo(p: Pravilo): Promise<string | null> {
   return error ? prevediGresku(error.message) : null;
 }
 
+/**
+ * Nakon brisanja/ukidanja termina: obriši prazne planove treninga (bez upisanih serija)
+ * od zadanog dana nadalje koji više nemaju nijedan termin tog klijenta.
+ * Planovi otkazanih termina ostaju (termin se može vratiti).
+ */
+export async function ocistiPlanoveBezTermina(klijentId: string, od: string): Promise<void> {
+  const sb = supabase();
+  const { data: planovi } = await sb
+    .from("treninzi")
+    .select("datum")
+    .eq("klijent_id", klijentId)
+    .eq("iz_kalendara", true)
+    .gte("datum", od);
+  const datumi = (planovi ?? []).map((r) => String(r.datum));
+  if (datumi.length === 0) return;
+  const doDana = datumi.reduce((m, d) => (d > m ? d : m), od);
+  const [p, d] = await Promise.all([
+    sb.from("termini_pravila").select("*, iznimke:termini_iznimke(*)").eq("klijent_id", klijentId),
+    sb.from("termini_dodatni").select("*").eq("klijent_id", klijentId).gte("datum", od).lte("datum", doDana),
+  ]);
+  if (p.error || d.error) return;
+  const pravila = (p.data ?? []).map((r: Red) => uPravilo(r));
+  const iznimke = (p.data ?? []).flatMap((r: Red) => ((r.iznimke as Red[] | null) ?? []).map(uIznimku));
+  const dodatni = (d.data ?? []).map((r: Red) => uDodatni(r));
+  const sTerminom = new Set(razvijTermine(pravila, iznimke, dodatni, od, doDana).map((t) => t.datum));
+  await Promise.all(
+    datumi
+      .filter((x) => !sTerminom.has(x))
+      .map((x) => sb.rpc("ukloni_trening_termina", { p_klijent: klijentId, p_datum: x })),
+  );
+}
+
 /** Javi poslužitelju da pošalje klijentu e-mail o promjeni rasporeda. */
 export async function obavijestiKlijenta(klijentId: string, promjena: string): Promise<string> {
   try {

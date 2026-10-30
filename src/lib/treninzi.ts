@@ -203,7 +203,10 @@ export function nazivDana(dan: Pick<PlanDan, "naziv" | "skupine" | "dan_u_tjednu
  * Vježbe dana po mišićnim skupinama, redom kojim su skupine zadane.
  * Vježbe iz skupine koja nije zadana dolaze na kraj, pod svojom skupinom.
  */
-export function poSkupinama(dan: Pick<PlanDan, "skupine" | "vjezbe">): { skupina: string; vjezbe: PlanVjezba[] }[] {
+export function poSkupinama<T extends { vjezba: Vjezba | null }>(dan: {
+  skupine: string[];
+  vjezbe: T[];
+}): { skupina: string; vjezbe: T[] }[] {
   const redom = [...dan.skupine];
   for (const pv of dan.vjezbe) {
     const s = pv.vjezba?.misicna_skupina ?? "Ostalo";
@@ -220,6 +223,8 @@ export type Kilaza = {
   vjezbaId: string;
   maxKg: number | null;
   maxPonavljanja: number | null;
+  /** broj serija na treningu na kojem je postignuta najveća kilaža */
+  maxSerija: number | null;
   maxDatum: string | null;
   zadnjaKg: number | null;
   zadnjaPonavljanja: number | null;
@@ -232,6 +237,7 @@ export function uKilazu(r: Red): Kilaza {
     vjezbaId: String(r.vjezba_id),
     maxKg: broj(r.max_kg),
     maxPonavljanja: broj(r.max_ponavljanja),
+    maxSerija: broj(r.max_serija),
     maxDatum: r.max_datum ? String(r.max_datum) : null,
     zadnjaKg: broj(r.zadnja_kg),
     zadnjaPonavljanja: broj(r.zadnja_ponavljanja),
