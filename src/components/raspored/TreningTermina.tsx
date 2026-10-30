@@ -7,7 +7,7 @@ import { SkupineForma } from "@/app/trener/plan/SkupineForma";
 import { Ploca } from "@/components/Ploca";
 import { kratkoMax, useBazneIKilaze } from "@/components/trening/useBazneIKilaze";
 import { Gumb, Poruka, Ucitavanje } from "@/components/ui";
-import { danMjesec, danasZagreb, dodajDane } from "@/lib/datum";
+import { danMjesec, danasZagreb } from "@/lib/datum";
 import { prevediGresku } from "@/lib/greske";
 import {
   SELECT_TRENINGA,
@@ -21,6 +21,7 @@ import { formatG } from "@/lib/makroi";
 import { opisTermina, type Termin } from "@/lib/raspored";
 import { supabase } from "@/lib/supabase/client";
 import { opisCilja, poSkupinama, type Vjezba } from "@/lib/treninzi";
+import { KopirajTrening } from "./KopirajTrening";
 import { UpisSerija } from "./UpisSerija";
 
 type Stanje = { kljuc: string; trening: TreningKalendara | null; greska: string | null };
@@ -59,6 +60,7 @@ export function TreningTermina({
   const [greska, setGreska] = useState<string | null>(null);
   const [obavijest, setObavijest] = useState<string | null>(null);
   const [radi, setRadi] = useState(false);
+  const [kopiranje, setKopiranje] = useState(false);
 
   useEffect(() => {
     let aktivno = true;
@@ -146,8 +148,8 @@ export function TreningTermina({
           trening_id: id,
           vjezba_id: v.id,
           redoslijed: pocetak + i,
-          serije: Math.min(20, k?.maxSerija ?? 3),
-          ponavljanja: String(k?.maxPonavljanja ?? 10),
+          serije: k?.maxSerija && k.maxSerija > 0 ? Math.min(20, k.maxSerija) : 3,
+          ponavljanja: String(k?.maxPonavljanja && k.maxPonavljanja > 0 ? k.maxPonavljanja : 10),
           kg: k?.maxKg ?? null,
         };
       });
@@ -205,21 +207,6 @@ export function TreningTermina({
       setForma(null);
       osvjezi();
     };
-  }
-
-  async function kopirajProsli() {
-    const iz = dodajDane(datum, -7);
-    const zamijeni = Boolean(trening?.vjezbe.length);
-    if (zamijeni && !window.confirm(`Zamijeniti ovaj plan treningom od ${danMjesec(iz)}?`)) return;
-    setGreska(null);
-    setObavijest(null);
-    setRadi(true);
-    const { data, error } = await sb.rpc("kopiraj_trening", { p_klijent: klijentId, p_iz: iz, p_u: datum, p_zamijeni: zamijeni });
-    setRadi(false);
-    if (error) return setGreska(prevediGresku(error.message));
-    if (!Number(data)) return setObavijest(`${danMjesec(iz)} nema plana za kopiranje.`);
-    setObavijest(`Kopirano s ${danMjesec(iz)}. Promijeni što treba.`);
-    osvjezi();
   }
 
   async function zavrsi(zavrsen: boolean) {
@@ -282,8 +269,8 @@ export function TreningTermina({
                 <Gumb onClick={() => setSkupineOtvorene(true)} disabled={radi}>
                   + Mišićne skupine
                 </Gumb>
-                <Gumb varijanta="sporedni" onClick={kopirajProsli} disabled={radi}>
-                  Kopiraj s prošlog tjedna ({danMjesec(dodajDane(datum, -7))})
+                <Gumb varijanta="sporedni" onClick={() => setKopiranje(true)} disabled={radi}>
+                  Kopiraj plan s drugog treninga
                 </Gumb>
               </>
             )}
@@ -351,8 +338,8 @@ export function TreningTermina({
                 <Gumb varijanta="sporedni" malen onClick={() => setSkupineOtvorene(true)} disabled={radi}>
                   Skupine
                 </Gumb>
-                <Gumb varijanta="sporedni" malen onClick={kopirajProsli} disabled={radi}>
-                  Kopiraj prošli tj.
+                <Gumb varijanta="sporedni" malen onClick={() => setKopiranje(true)} disabled={radi}>
+                  Kopiraj plan
                 </Gumb>
               </div>
             ) : trening!.zavrsen ? (
@@ -400,6 +387,19 @@ export function TreningTermina({
           onSpremi={(p) => spremiVjezbu(forma, p)}
           onUkloni={() => ukloniVjezbu(forma)}
           onPomakni={{ gore: pomak(forma, -1), dolje: pomak(forma, 1) }}
+        />
+      )}
+      {kopiranje && (
+        <KopirajTrening
+          klijentId={klijentId}
+          datum={datum}
+          zamijeni={Boolean(trening?.vjezbe.length)}
+          onKopirano={(poruka) => {
+            setKopiranje(false);
+            setObavijest(poruka);
+            osvjezi();
+          }}
+          onZatvori={() => setKopiranje(false)}
         />
       )}
       {upis && trening && (

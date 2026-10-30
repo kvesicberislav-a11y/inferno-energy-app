@@ -1,6 +1,7 @@
 "use client";
 
 import { danMjesec, dodajDane, vrijemeZagreb } from "@/lib/datum";
+import { bojaKlijenta } from "@/lib/boje";
 import { kljucTreninga, kratkeSkupine } from "@/lib/kalendar";
 import { jePomaknut, type Termin } from "@/lib/raspored";
 import { DANI_KRATKO } from "@/lib/treninzi";
@@ -53,6 +54,7 @@ export function TjednaMreza({
   onPrazno,
   oznake = {},
   istaknut,
+  boje = {},
 }: {
   pon: string;
   danas: string;
@@ -62,6 +64,8 @@ export function TjednaMreza({
   oznake?: Record<string, { skupine: string[]; zavrsen: boolean }>;
   /** filter: termini koji ne odgovaraju prikazuju se posivljeno */
   istaknut?: (t: Termin) => boolean;
+  /** redni broj boje po klijentu */
+  boje?: Record<string, number | null>;
   onTermin: (t: Termin) => void;
   onPrazno: (datum: string, vrijeme: string) => void;
 }) {
@@ -139,23 +143,22 @@ export function TjednaMreza({
                   : puno.split(" ")[0];
               const oznaka = oznake[kljucTreninga(t.klijentId, t.datum)];
               const prigusen = istaknut ? !istaknut(t) : false;
-              const boja = t.otkazan
-                ? "border-zinc-600 bg-zinc-700/40 text-tekst-2 line-through"
-                : jePomaknut(t)
-                  ? "border-amber-400/60 bg-amber-400/25 text-amber-50"
-                  : t.pravilo
-                    ? "border-vatra/60 bg-vatra/30 text-orange-50"
-                    : "border-sky-400/60 bg-sky-500/25 text-sky-50";
+              // svaki klijent svoja boja; vrsta termina po rubu: isprekidan = samo jednom, ↻ = pomaknut, sivo = otkazan
+              const b = bojaKlijenta(boje[t.klijentId]);
+              const stil = t.otkazan
+                ? { background: "rgba(63, 63, 70, 0.6)", borderColor: "rgb(82, 82, 91)", color: "#a1a1aa" }
+                : { background: b.pozadina, borderColor: b.rub, color: b.tekst };
               return (
                 <button
                   key={t.kljuc}
                   type="button"
                   onClick={() => onTermin(t)}
-                  title={`${imena[t.klijentId] ?? "Klijent"} · ${t.vrijeme}`}
-                  className={`absolute z-20 overflow-hidden rounded-md border px-0.5 text-left leading-tight active:scale-[0.97] ${boja} ${
-                    prigusen ? "opacity-25" : ""
-                  }`}
+                  title={`${imena[t.klijentId] ?? "Klijent"} · ${t.vrijeme}${t.pravilo ? "" : " · samo jednom"}`}
+                  className={`absolute z-20 overflow-hidden rounded-md border-2 px-0.5 text-left leading-tight shadow-sm active:scale-[0.97] ${
+                    t.pravilo ? "border-solid" : "border-dashed"
+                  } ${t.otkazan ? "line-through" : ""} ${prigusen ? "opacity-25" : ""}`}
                   style={{
+                    ...stil,
                     top: vrh + 1,
                     height: vis,
                     left: `calc(${(stupac / stupaca) * 100}% + 1px)`,
@@ -164,6 +167,7 @@ export function TjednaMreza({
                 >
                   <span className="block truncate text-[11px] font-semibold">
                     {oznaka?.zavrsen ? "✓ " : ""}
+                    {jePomaknut(t) ? "↻ " : ""}
                     {ime}
                   </span>
                   {vis >= 34 &&

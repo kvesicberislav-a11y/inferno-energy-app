@@ -30,7 +30,7 @@ export function NoviTermin({
   const [datum, setDatum] = useState(pocetniDatum);
   const [vrijeme, setVrijeme] = useState(pocetnoVrijeme);
   const [trajanje, setTrajanje] = useState(60);
-  const [stalni, setStalni] = useState(true);
+  const [stalni, setStalni] = useState(false);
   const [upit, setUpit] = useState("");
   const [greska, setGreska] = useState<string | null>(null);
   const [radi, setRadi] = useState(false);
@@ -104,8 +104,8 @@ export function NoviTermin({
         <div className="grid grid-cols-2 gap-1 rounded-2xl border border-rub bg-povrsina-2 p-1" role="group" aria-label="Ponavljanje">
           {(
             [
-              [true, "Svaki tjedan"],
               [false, "Samo jednom"],
+              [true, "Svaki tjedan"],
             ] as const
           ).map(([k, o]) => (
             <button

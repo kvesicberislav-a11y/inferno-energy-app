@@ -86,6 +86,19 @@ export function UpisSerija({
     onPromjena();
   }
 
+  /** Ponovni dodir na zeleni ✓: serija više nije odrađena (brojevi ostaju upisani). */
+  async function ponisti(i: number) {
+    const s = redovi[i]?.spremljeno;
+    if (!s) return;
+    setGreska(null);
+    setRadi(i);
+    const { error } = await supabase().from("odradjene_serije").delete().eq("id", s.id);
+    setRadi(null);
+    if (error) return setGreska(prevediGresku(error.message));
+    setRedovi((rr) => rr.map((x, j) => (j === i ? { ...x, spremljeno: null } : x)));
+    onPromjena();
+  }
+
   async function ukloniZadnju() {
     const i = redovi.length - 1;
     const r = redovi[i];
@@ -162,9 +175,9 @@ export function UpisSerija({
                 />
                 <button
                   type="button"
-                  aria-label={`Spremi seriju ${r.redni}`}
-                  disabled={radi !== null || !p}
-                  onClick={() => spremi(i)}
+                  aria-label={p ? `Spremi seriju ${r.redni}` : `Poništi seriju ${r.redni}`}
+                  disabled={radi !== null}
+                  onClick={() => (p ? spremi(i) : ponisti(i))}
                   className={`flex h-14 w-12 items-center justify-center rounded-2xl text-xl font-bold transition active:scale-95 ${
                     !p ? "bg-emerald-500/20 text-emerald-300" : "bg-linear-to-r from-vatra to-vatra-2 text-white disabled:opacity-50"
                   }`}
@@ -182,6 +195,7 @@ export function UpisSerija({
               − Zadnja serija
             </Gumb>
           </div>
+          <p className="text-center text-xs text-tekst-2">Slučajno potvrđeno? Dodirni zeleni ✓ i serija se poništi.</p>
         </div>
 
         {greska && <Poruka tip="greska">{greska}</Poruka>}

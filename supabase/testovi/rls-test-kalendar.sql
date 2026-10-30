@@ -7,7 +7,7 @@ declare
   k2 uuid;
   v1 uuid;
   v2 uuid;
-  d1 date := public.danas_zagreb() + 3;
+  d1 date := public.danas_zagreb() + 400; -- daleko u budućnosti, da se ne sudari s pravim treninzima
   t1 uuid;
   t2 uuid;
   plan uuid;

@@ -23,10 +23,17 @@ export type Raspored = {
   dodatni: Dodatni[];
   termini: Termin[];
   imena: Record<string, string>;
+  /** redni broj boje klijenta u kalendaru (profili.boja) */
+  boje: Record<string, number | null>;
   greska: string | null;
 };
 
 type Red = Record<string, unknown>;
+
+function bojaIzReda(r: Red): number | null {
+  const k = (Array.isArray(r.klijent) ? r.klijent[0] : r.klijent) as { boja?: number | null } | null;
+  return k?.boja ?? null;
+}
 
 function imeKlijenta(r: Red) {
   const k = (Array.isArray(r.klijent) ? r.klijent[0] : r.klijent) as { ime?: string; email?: string } | null;
@@ -42,10 +49,10 @@ export function useRaspored(klijentId: string | null, od: string, doDana: string
   useEffect(() => {
     let aktivno = true;
     const sb = supabase();
-    let pq = sb.from("termini_pravila").select("*, klijent:profili(ime, email), iznimke:termini_iznimke(*)");
+    let pq = sb.from("termini_pravila").select("*, klijent:profili(ime, email, boja), iznimke:termini_iznimke(*)");
     let dq = sb
       .from("termini_dodatni")
-      .select("*, klijent:profili(ime, email)")
+      .select("*, klijent:profili(ime, email, boja)")
       .gte("datum", od)
       .lte("datum", doDana);
     if (klijentId) {
@@ -55,13 +62,16 @@ export function useRaspored(klijentId: string | null, od: string, doDana: string
     Promise.all([pq, dq]).then(([p, d]) => {
       if (!aktivno) return;
       const imena: Record<string, string> = {};
+      const boje: Record<string, number | null> = {};
       const pravila = (p.data ?? []).map((r: Red) => {
         imena[String(r.klijent_id)] = imeKlijenta(r);
+        boje[String(r.klijent_id)] = bojaIzReda(r);
         return uPravilo(r);
       });
       const iznimke = (p.data ?? []).flatMap((r: Red) => ((r.iznimke as Red[] | null) ?? []).map(uIznimku));
       const dodatni = (d.data ?? []).map((r: Red) => {
         imena[String(r.klijent_id)] = imeKlijenta(r);
+        boje[String(r.klijent_id)] = bojaIzReda(r);
         return uDodatni(r);
       });
       const greska = p.error || d.error;
@@ -73,6 +83,7 @@ export function useRaspored(klijentId: string | null, od: string, doDana: string
         dodatni,
         termini: razvijTermine(pravila, iznimke, dodatni, od, doDana),
         imena,
+        boje,
         greska: greska ? prevediGresku(greska.message) : null,
       });
     });

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { KopirajPlanove } from "@/components/raspored/KopirajPlanove";
 import { NoviTermin } from "@/components/raspored/NoviTermin";
 import { TerminRadnje } from "@/components/raspored/TerminRadnje";
 import { TjednaMreza } from "@/components/raspored/TjednaMreza";
@@ -12,7 +13,6 @@ import { Zasticeno } from "@/components/Zasticeno";
 import { Cip, Gumb, Poruka, Stranica, Ucitavanje } from "@/components/ui";
 import { danMjesec, dodajDane, ponedjeljak } from "@/lib/datum";
 import { kljucTreninga } from "@/lib/kalendar";
-import { prevediGresku } from "@/lib/greske";
 import type { Termin } from "@/lib/raspored";
 import { supabase } from "@/lib/supabase/client";
 import { MISICNE_SKUPINE } from "@/lib/treninzi";
@@ -60,11 +60,10 @@ function TjedniRaspored() {
   const [radnje, setRadnje] = useState<Termin | null>(null);
   const [novi, setNovi] = useState<{ datum: string; vrijeme: string } | null>(null);
   const [obavijest, setObavijest] = useState<string | null>(null);
-  const [greska, setGreska] = useState<string | null>(null);
   const [klijentFiltar, setKlijentFiltar] = useState<string>("");
   const [imeFiltra, setImeFiltra] = useState<string>("");
   const [skupineFiltar, setSkupineFiltar] = useState<string[]>([]);
-  const [kopira, setKopira] = useState(false);
+  const [kopiranje, setKopiranje] = useState(false);
 
   function gotovo(poruka: string) {
     setRadnje(null);
@@ -98,49 +97,6 @@ function TjedniRaspored() {
     s,
     n: aktivniTermini.filter((t) => odgovaraKlijentu(t) && skupineTermina(t).includes(s)).length,
   }));
-
-  async function kopirajProsliTjedan() {
-    // jedan plan po klijentu i danu (dva termina istog dana dijele plan)
-    const ciljevi = [
-      ...new Map(
-        aktivniTermini
-          .filter((t) => odgovaraKlijentu(t) && !oznake[kljucTreninga(t.klijentId, t.datum)]?.skupine.length)
-          .map((t) => [kljucTreninga(t.klijentId, t.datum), t] as const),
-      ).values(),
-    ];
-    if (ciljevi.length === 0) return setObavijest("Svi termini ovog tjedna već imaju plan.");
-    if (
-      !window.confirm(
-        `Kopirati planove s prošlog tjedna u ${ciljevi.length} ${ciljevi.length === 1 ? "termin" : "termina"} bez plana${
-          klijentFiltar ? ` (${raspored?.imena[klijentFiltar] ?? "klijent"})` : ""
-        }? Termini koji već imaju plan se ne diraju.`,
-      )
-    ) {
-      return;
-    }
-    setGreska(null);
-    setKopira(true);
-    const rez = await Promise.all(
-      ciljevi.map((t) =>
-        supabase().rpc("kopiraj_trening", {
-          p_klijent: t.klijentId,
-          p_iz: dodajDane(t.datum, -7),
-          p_u: t.datum,
-          p_zamijeni: false,
-        }),
-      ),
-    );
-    setKopira(false);
-    const g = rez.find((r) => r.error);
-    if (g?.error) setGreska(prevediGresku(g.error.message));
-    const kopirano = rez.filter((r) => Number(r.data) > 0).length;
-    setObavijest(
-      kopirano
-        ? `Kopirano ${kopirano} ${kopirano === 1 ? "trening" : "treninga"} s prošlog tjedna. Promijeni samo što treba.`
-        : "Prošli tjedan nema planova za ove termine.",
-    );
-    setVerzijaOznaka((v) => v + 1);
-  }
 
   return (
     <>
@@ -229,7 +185,6 @@ function TjedniRaspored() {
       </div>
 
       {obavijest && <Poruka tip="uspjeh">{obavijest}</Poruka>}
-      {greska && <Poruka tip="greska">{greska}</Poruka>}
 
       {!raspored ? (
         <Ucitavanje />
@@ -246,20 +201,22 @@ function TjedniRaspored() {
             termini={raspored.termini}
             imena={raspored.imena}
             oznake={oznake}
+            boje={raspored.boje}
             istaknut={imaFiltar ? istaknut : undefined}
             onTermin={setTrening}
             onPrazno={(datum, vrijeme) => setNovi({ datum, vrijeme })}
           />
           <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-tekst-2">
-            <Legenda boja="border-vatra/60 bg-vatra/30">svaki tjedan</Legenda>
-            <Legenda boja="border-sky-400/60 bg-sky-500/25">jednom</Legenda>
-            <Legenda boja="border-amber-400/60 bg-amber-400/25">pomaknut</Legenda>
-            <Legenda boja="border-zinc-600 bg-zinc-700/40">otkazan</Legenda>
+            <span>Svaki klijent ima svoju boju.</span>
+            <Legenda boja="border-2 border-solid border-tekst-2">svaki tjedan</Legenda>
+            <Legenda boja="border-2 border-dashed border-tekst-2">samo jednom</Legenda>
+            <span>↻ pomaknut</span>
+            <Legenda boja="border border-zinc-600 bg-zinc-700/60">otkazan</Legenda>
             <span>✓ odrađen</span>
           </div>
           {aktivniTermini.length > 0 && (
-            <Gumb varijanta="sporedni" onClick={kopirajProsliTjedan} disabled={kopira}>
-              {kopira ? "Kopiram…" : "Kopiraj planove s prošlog tjedna"}
+            <Gumb varijanta="sporedni" onClick={() => setKopiranje(true)}>
+              Kopiraj planove s ranijeg tjedna
             </Gumb>
           )}
         </>
@@ -286,6 +243,21 @@ function TjedniRaspored() {
           onZatvori={() => setRadnje(null)}
         />
       )}
+      {kopiranje && raspored && (
+        <KopirajPlanove
+          pon={pon}
+          termini={aktivniTermini}
+          imena={raspored.imena}
+          imaPlan={(k, d) => Boolean(oznake[kljucTreninga(k, d)]?.skupine.length)}
+          pocetniKlijent={klijentFiltar}
+          onGotovo={(poruka) => {
+            setKopiranje(false);
+            setObavijest(poruka);
+            setVerzijaOznaka((v) => v + 1);
+          }}
+          onZatvori={() => setKopiranje(false)}
+        />
+      )}
       {novi && (
         <NoviTermin datum={novi.datum} vrijeme={novi.vrijeme} onGotovo={gotovo} onZatvori={() => setNovi(null)} />
       )}
@@ -296,7 +268,7 @@ function TjedniRaspored() {
 function Legenda({ boja, children }: { boja: string; children: string }) {
   return (
     <span className="flex items-center gap-1.5">
-      <span className={`h-3 w-3 rounded border ${boja}`} aria-hidden="true" />
+      <span className={`h-3 w-4 rounded ${boja}`} aria-hidden="true" />
       {children}
     </span>
   );
