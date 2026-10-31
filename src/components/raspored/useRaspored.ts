@@ -153,10 +153,9 @@ export async function obavijestiKlijenta(klijentId: string, promjena: string): P
       body: JSON.stringify({ klijentId, promjena }),
     });
     const r = (await odgovor.json().catch(() => ({}))) as { poslano?: boolean; razlog?: string; greska?: string };
-    if (r.poslano) return "Spremljeno. Klijent je obaviješten e-mailom.";
-    if (r.razlog === "nije_podeseno") return "Spremljeno. (E-mail obavijesti uključit će se kad se podesi domena.)";
-    return `Spremljeno, ali e-mail nije poslan${r.greska ? `: ${r.greska}` : "."}`;
+    // e-mail obavijesti se ne koriste – bez napomene o e-mailu
+    return r.poslano ? "Spremljeno. Klijent je obaviješten e-mailom." : "Spremljeno.";
   } catch {
-    return "Spremljeno, ali e-mail nije poslan (nema veze).";
+    return "Spremljeno.";
   }
 }
