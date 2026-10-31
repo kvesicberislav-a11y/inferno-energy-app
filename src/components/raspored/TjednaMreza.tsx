@@ -1,5 +1,6 @@
 "use client";
 
+import { useRef, useState, type DragEvent } from "react";
 import { danMjesec, dodajDane, vrijemeZagreb } from "@/lib/datum";
 import { bojaKlijenta } from "@/lib/boje";
 import { kljucTreninga, kratkeSkupine } from "@/lib/kalendar";
@@ -9,6 +10,15 @@ import { DANI_KRATKO } from "@/lib/treninzi";
 const VISINA_SATA = 48; // px
 const PRVI_SAT = 7;
 const ZADNJI_SAT = 21; // zadnji red počinje u 20:00 i završava u 21:00
+
+/** 495 -> "08:15" */
+function uVrijeme(min: number) {
+  return `${String(Math.floor(min / 60)).padStart(2, "0")}:${String(min % 60).padStart(2, "0")}`;
+}
+
+/** Kamo je termin ispušten: na mjesto (dan + minute) ili na drugi termin (zamjena). */
+type Cilj = { datum: string; min: number } | { kljuc: string };
+export type CiljPremjestanja = { datum: string; vrijeme: string } | { zamjena: Termin };
 
 function minute(vrijeme: string) {
   const [h, m] = vrijeme.split(":").map(Number);
@@ -57,6 +67,7 @@ export function TjednaMreza({
   boje = {},
   siroko = false,
   visinaMreze,
+  onPremjesti,
 }: {
   pon: string;
   danas: string;
@@ -72,6 +83,8 @@ export function TjednaMreza({
   siroko?: boolean;
   /** puni zaslon: visina mreže u px (sati se rastegnu da stane cijeli dan) */
   visinaMreze?: number;
+  /** računalo: termin se povuče mišem na drugo mjesto (ili na drugi termin = zamjena) */
+  onPremjesti?: (t: Termin, cilj: CiljPremjestanja) => void;
   onTermin: (t: Termin) => void;
   onPrazno: (datum: string, vrijeme: string) => void;
 }) {
@@ -88,6 +101,40 @@ export function TjednaMreza({
   const [h, m] = vrijemeZagreb(new Date().toISOString()).split(":").map(Number);
   const sadaPx = ((h * 60 + m - prviSat * 60) / 60) * visinaSata;
   const stupciMreze = siroko ? "grid-cols-[2.5rem_repeat(7,minmax(0,1fr))]" : "grid-cols-[1.75rem_repeat(7,minmax(0,1fr))]";
+
+  // povlačenje termina (samo kad je onPremjesti zadan – na računalu)
+  const [vuceni, setVuceni] = useState<Termin | null>(null);
+  const [cilj, setCilj] = useState<Cilj | null>(null);
+  const odmakY = useRef(0); // gdje je termin uhvaćen (px od vrha termina)
+
+  function ciljIz(e: DragEvent<HTMLDivElement>, datum: string): Cilj {
+    const kljuc = (e.target as HTMLElement).closest("[data-termin]")?.getAttribute("data-termin");
+    const drugi = kljuc && vuceni && kljuc !== vuceni.kljuc ? termini.find((x) => x.kljuc === kljuc) : undefined;
+    // Ctrl/Shift = stavi uz drugi termin (u isto vrijeme), bez zamjene
+    if (drugi && !drugi.otkazan && !e.ctrlKey && !e.shiftKey) return { kljuc: drugi.kljuc };
+    const vrh = e.currentTarget.getBoundingClientRect().top;
+    const min = Math.round((prviSat * 60 + ((e.clientY - vrh - odmakY.current) / visinaSata) * 60) / 15) * 15;
+    return { datum, min: Math.max(0, Math.min(24 * 60 - (vuceni?.trajanje ?? 60), min)) };
+  }
+
+  const isti = (a: Cilj | null, b: Cilj) =>
+    a !== null && ("kljuc" in a && "kljuc" in b ? a.kljuc === b.kljuc : "min" in a && "min" in b && a.datum === b.datum && a.min === b.min);
+
+  function pusti(e: DragEvent<HTMLDivElement>, datum: string) {
+    e.preventDefault();
+    const t = vuceni;
+    const c = ciljIz(e, datum);
+    setVuceni(null);
+    setCilj(null);
+    if (!t || !onPremjesti) return;
+    if ("kljuc" in c) {
+      const drugi = termini.find((x) => x.kljuc === c.kljuc);
+      if (drugi) onPremjesti(t, { zamjena: drugi });
+      return;
+    }
+    const vrijeme = uVrijeme(c.min);
+    if (c.datum !== t.datum || vrijeme !== t.vrijeme) onPremjesti(t, { datum: c.datum, vrijeme });
+  }
 
   return (
     <div className="-mx-2 select-none">
@@ -123,6 +170,17 @@ export function TjednaMreza({
             key={d}
             className={`relative overflow-hidden rounded-md ${d === danas ? "bg-vatra/5" : "bg-povrsina"}`}
             style={{ height: visina }}
+            onDragOver={
+              onPremjesti && vuceni
+                ? (e) => {
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = "move";
+                    const c = ciljIz(e, d);
+                    if (!isti(cilj, c)) setCilj(c);
+                  }
+                : undefined
+            }
+            onDrop={onPremjesti && vuceni ? (e) => pusti(e, d) : undefined}
           >
             {sati.map((s, i) => (
               <button
@@ -134,6 +192,19 @@ export function TjednaMreza({
                 style={{ top: i * visinaSata, height: visinaSata }}
               />
             ))}
+
+            {/* gdje će termin sjesti kad se pusti */}
+            {vuceni && cilj && "min" in cilj && cilj.datum === d && (
+              <div
+                className="pointer-events-none absolute inset-x-0.5 z-30 rounded-md border-2 border-dashed border-white/80 bg-white/10 px-1 text-xs font-semibold text-white"
+                style={{
+                  top: ((cilj.min - prviSat * 60) / 60) * visinaSata + 1,
+                  height: Math.max(20, (vuceni.trajanje / 60) * visinaSata - 2),
+                }}
+              >
+                {uVrijeme(cilj.min)}
+              </div>
+            )}
 
             {d === danas && sadaPx > 0 && sadaPx < visina && (
               <div className="pointer-events-none absolute inset-x-0 z-10 h-0.5 bg-vatra-2" style={{ top: sadaPx }} />
@@ -169,11 +240,25 @@ export function TjednaMreza({
                 <button
                   key={t.kljuc}
                   type="button"
+                  data-termin={t.kljuc}
+                  draggable={Boolean(onPremjesti) && !t.otkazan}
+                  onDragStart={(e) => {
+                    odmakY.current = e.clientY - e.currentTarget.getBoundingClientRect().top;
+                    e.dataTransfer.effectAllowed = "move";
+                    e.dataTransfer.setData("text/plain", t.kljuc);
+                    setVuceni(t);
+                  }}
+                  onDragEnd={() => {
+                    setVuceni(null);
+                    setCilj(null);
+                  }}
                   onClick={() => onTermin(t)}
                   title={`${imena[t.klijentId] ?? "Klijent"} · ${t.vrijeme}${t.pravilo ? "" : " · samo jednom"}${oznaka?.nijeDosao ? " · nije došao" : ""}`}
                   className={`absolute z-20 overflow-hidden rounded-md border-2 px-0.5 text-left leading-tight shadow-sm active:scale-[0.97] ${
                     t.pravilo ? "border-solid" : "border-dashed"
-                  } ${t.otkazan ? "line-through" : ""} ${prigusen ? "opacity-25" : ""}`}
+                  } ${t.otkazan ? "line-through" : ""} ${prigusen || vuceni?.kljuc === t.kljuc ? "opacity-25" : ""} ${
+                    cilj && "kljuc" in cilj && cilj.kljuc === t.kljuc ? "ring-2 ring-white ring-offset-1 ring-offset-black" : ""
+                  } ${onPremjesti && !t.otkazan ? "cursor-grab" : ""}`}
                   style={{
                     ...stil,
                     top: vrh + 1,

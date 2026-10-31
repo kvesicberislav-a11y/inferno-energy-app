@@ -5,7 +5,8 @@ import { KopirajPlanove } from "@/components/raspored/KopirajPlanove";
 import { KopirajRaspored } from "@/components/raspored/KopirajRaspored";
 import { NoviTermin } from "@/components/raspored/NoviTermin";
 import { TerminRadnje } from "@/components/raspored/TerminRadnje";
-import { TjednaMreza } from "@/components/raspored/TjednaMreza";
+import { premjestiTermin, vratiTermin, type Rezultat } from "@/components/raspored/premjestanje";
+import { TjednaMreza, type CiljPremjestanja } from "@/components/raspored/TjednaMreza";
 import { TreningTermina } from "@/components/raspored/TreningTermina";
 import { ocistiPlanoveBezTermina, useRaspored } from "@/components/raspored/useRaspored";
 import { useDanas } from "@/components/useDanas";
@@ -17,7 +18,7 @@ import { prevediGresku } from "@/lib/greske";
 import { imeZaDatoteku } from "@/lib/izvoz/podaci";
 import { mozeDijeliti, podijeli, preuzmi } from "@/lib/izvoz/spremi";
 import { kljucTreninga } from "@/lib/kalendar";
-import type { Termin } from "@/lib/raspored";
+import { opisTermina, type Termin } from "@/lib/raspored";
 import { supabase } from "@/lib/supabase/client";
 import { MISICNE_SKUPINE } from "@/lib/treninzi";
 
@@ -101,6 +102,15 @@ function TjedniRaspored() {
   const [pdf, setPdf] = useState<{ pon: string; blob: Blob; ime: string } | null>(null);
   const [pdfRadi, setPdfRadi] = useState(false);
   const [greskaPdf, setGreskaPdf] = useState<string | null>(null);
+  // povlačenje termina (računalo): zadnja promjena se može poništiti
+  const [premjesta, setPremjesta] = useState(false);
+  const [ponisti, setPonisti] = useState<{ opis: string; vrati: () => Promise<Rezultat[]> } | null>(null);
+
+  useEffect(() => {
+    if (!ponisti) return;
+    const t = setTimeout(() => setPonisti(null), 20_000);
+    return () => clearTimeout(t);
+  }, [ponisti]);
   const [brise, setBrise] = useState(false);
   const [greskaBrisanja, setGreskaBrisanja] = useState<string | null>(null);
   const racunalo = useRacunalo();
@@ -171,6 +181,60 @@ function TjedniRaspored() {
     setBrise(false);
     if (g) return setGreskaBrisanja(prevediGresku(g.message));
     gotovo(`Obrisano ${za.length} ${za.length === 1 ? "termin" : "termina"} u tjednu ${danMjesec(pon)} – ${danMjesec(ned)}.`);
+  }
+
+  function osvjeziSve() {
+    osvjezi();
+    setVerzijaOznaka((v) => v + 1);
+  }
+
+  /** Termin povučen mišem: na prazno mjesto = premjesti, na drugi termin = zamjena mjesta. */
+  async function naPremjesti(t: Termin, cilj: CiljPremjestanja) {
+    const ime = (k: string) => (raspored?.imena[k] ?? "Klijent").split(" ")[0];
+    setObavijest(null);
+    setGreskaBrisanja(null);
+    setPonisti(null);
+    let rez: Rezultat[];
+    let opis: string;
+    let vrati: () => Promise<Rezultat[]>;
+    setPremjesta(true);
+    if ("zamjena" in cilj) {
+      const b = cilj.zamjena;
+      if (b.klijentId === t.klijentId) {
+        setPremjesta(false);
+        return setGreskaBrisanja("To je termin istog klijenta – povuci ga na prazno mjesto.");
+      }
+      const prvi = await premjestiTermin(t, b.datum, b.vrijeme);
+      const drugi = prvi.greska ? null : await premjestiTermin(b, t.datum, t.vrijeme);
+      // ako drugi ne uspije, prvi se vraća (da ne ostanu napola zamijenjeni)
+      if (drugi?.greska) await vratiTermin(t, b.datum);
+      rez = drugi ? [prvi, drugi] : [prvi];
+      opis = `${ime(t.klijentId)} i ${ime(b.klijentId)} su zamijenili termine.`;
+      vrati = async () => [await vratiTermin(t, b.datum), await vratiTermin(b, t.datum)];
+    } else {
+      rez = [await premjestiTermin(t, cilj.datum, cilj.vrijeme)];
+      opis = `${ime(t.klijentId)}: termin je premješten na ${opisTermina(cilj)}.`;
+      vrati = async () => [await vratiTermin(t, cilj.datum)];
+    }
+    setPremjesta(false);
+    osvjeziSve();
+    const greska = rez.find((r) => r.greska)?.greska;
+    if (greska) return setGreskaBrisanja(greska);
+    const upozorenja = rez.map((r) => r.upozorenje).filter(Boolean).join(" ");
+    setPonisti({ opis: upozorenja ? `${opis} ${upozorenja}` : opis, vrati });
+  }
+
+  async function ponistiPremjestanje() {
+    if (!ponisti) return;
+    const p = ponisti;
+    setPonisti(null);
+    setPremjesta(true);
+    const rez = await p.vrati();
+    setPremjesta(false);
+    osvjeziSve();
+    const greska = rez.find((r) => r.greska)?.greska;
+    if (greska) setGreskaBrisanja(`Poništavanje nije uspjelo: ${greska}`);
+    else setObavijest("Vraćeno kako je bilo.");
   }
 
   function gotovo(poruka: string) {
@@ -372,6 +436,14 @@ function TjedniRaspored() {
 
       {obavijest && <Poruka tip="uspjeh">{obavijest}</Poruka>}
       {greskaPdf && <Poruka tip="greska">{greskaPdf}</Poruka>}
+      {ponisti && (
+        <div className="flex items-center justify-between gap-3 rounded-2xl border border-emerald-500/40 bg-emerald-500/10 p-3 text-sm text-emerald-100 lg:mx-auto lg:w-full lg:max-w-xl">
+          <span>{ponisti.opis}</span>
+          <Gumb varijanta="sporedni" malen onClick={ponistiPremjestanje} disabled={premjesta}>
+            Poništi
+          </Gumb>
+        </div>
+      )}
       {pdf?.pon === pon && (
         <div className="flex items-center justify-between gap-3 rounded-2xl border border-rub bg-povrsina p-3 text-sm lg:mx-auto lg:w-full lg:max-w-xl">
           <span>PDF rasporeda je preuzet{mozeDijeliti(pdf.blob, pdf.ime) ? " – možeš ga i poslati." : " (mapa Preuzimanja)."}</span>
@@ -415,6 +487,7 @@ function TjedniRaspored() {
             boje={raspored.boje}
             istaknut={imaFiltar ? istaknut : undefined}
             siroko={racunalo}
+            onPremjesti={racunalo && !premjesta ? naPremjesti : undefined}
             // puni zaslon: cijeli dan stane na ekran (ostatak visine zauzimaju gumbi i filter iznad)
             visinaMreze={puni && visinaProzora ? Math.max(480, visinaProzora - 330) : undefined}
             onTermin={setTrening}
@@ -428,6 +501,12 @@ function TjedniRaspored() {
             <Legenda boja="border border-zinc-600 bg-zinc-700/60">otkazan</Legenda>
             <span>✓ odrađen</span>
             <span>✗ nije došao</span>
+            {racunalo && (
+              <span>
+                Povuci termin mišem: na prazno mjesto = premjesti, na drugi termin = zamijene mjesta (drži Ctrl = stavi ga uz
+                taj termin).
+              </span>
+            )}
           </div>
           {greskaBrisanja && <Poruka tip="greska">{greskaBrisanja}</Poruka>}
           {raspored.termini.some((t) => !klijentFiltar || t.klijentId === klijentFiltar) && (
