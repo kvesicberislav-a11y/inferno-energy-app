@@ -122,6 +122,9 @@ export function KlijentiIPozivnice() {
   const klijenti = sviKlijenti?.filter((k) => k.aktivan) ?? null;
   const arhivirani = sviKlijenti?.filter((k) => !k.aktivan) ?? [];
   const pozivnice = podaci?.pozivnice ?? null;
+  // pozivnica klijenta bez računa šalje se s njegove kartice; u „Poslane pozivnice” idu samo ostale
+  const pozivnicaKlijenta = new Map((pozivnice ?? []).filter((p) => p.profil_id).map((p) => [p.profil_id!, p]));
+  const slobodnePozivnice = (pozivnice ?? []).filter((p) => !p.profil_id);
   const greska = podaci?.greska ?? null;
 
   const trebaPaznju = klijenti?.filter((k) => k.aktivnost.upozorenje).length ?? 0;
@@ -156,10 +159,10 @@ export function KlijentiIPozivnice() {
         !greska && <Ucitavanje />
       ) : (
         <>
-          {pozivnice.length > 0 && (
+          {slobodnePozivnice.length > 0 && (
             <section className="flex flex-col gap-3">
               <h2 className="text-lg font-semibold text-tekst-2">Poslane pozivnice</h2>
-              {pozivnice.map((p) => (
+              {slobodnePozivnice.map((p) => (
                 <RedPozivnice key={p.id} pozivnica={p} naPromjenu={ucitaj} />
               ))}
             </section>
@@ -227,7 +230,9 @@ export function KlijentiIPozivnice() {
                 {prikazani.length === 0 ? (
                   <Poruka>{!arhiva && filtar === "paznja" ? "Svi klijenti su aktivni. 👍" : "Nema rezultata."}</Poruka>
                 ) : (
-                  prikazani.map((k) => <KarticaKlijenta key={k.id} k={k} />)
+                  prikazani.map((k) => (
+                    <KarticaKlijenta key={k.id} k={k} pozivnica={pozivnicaKlijenta.get(k.id) ?? null} />
+                  ))
                 )}
               </>
             )}
@@ -251,39 +256,53 @@ function Plocica({ oznaka, vrijednost, upozorenje }: { oznaka: string; vrijednos
   );
 }
 
-export function KarticaKlijenta({ k }: { k: PregledKlijenta }) {
+export function KarticaKlijenta({ k, pozivnica = null }: { k: PregledKlijenta; pozivnica?: Pozivnica | null }) {
   const a: Aktivnost = k.aktivan
     ? k.aktivnost
     : { ...k.aktivnost, upozorenje: false, nikad: true, opis: `U arhivi od ${formatDatum(k.arhivirano ?? k.kreirano)}` };
   const boja = a.upozorenje ? "bg-amber-400" : a.danaBez === 0 && !a.nikad ? "bg-emerald-400" : "bg-zinc-500";
   const ikona = a.upozorenje ? "!" : a.danaBez === 0 && !a.nikad ? "✓" : "";
-  return (
-    <Link
-      href={`/trener/klijent?id=${k.id}`}
-      className={`flex flex-col gap-2 rounded-3xl border bg-povrsina p-4 active:scale-[0.99] ${
-        a.upozorenje ? "border-amber-400/50" : "border-rub"
-      } ${k.aktivan ? "" : "opacity-60"}`}
-    >
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="flex items-center gap-2">
-            <span className="truncate text-lg font-semibold">{k.ime || k.email}</span>
-            <OznakaNacina nacin={k.nacin} />
-          </p>
-          <p className="mt-0.5 flex items-center gap-1.5 text-sm text-tekst-2">
-            <span
-              className={`inline-flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-bold text-black ${boja}`}
-              aria-hidden="true"
-            >
-              {ikona}
-            </span>
-            {a.opis}
-          </p>
-        </div>
-        <span className="text-2xl text-tekst-2" aria-hidden="true">
-          ›
-        </span>
+  const okvir = `flex flex-col gap-2 rounded-3xl border bg-povrsina p-4 ${
+    a.upozorenje ? "border-amber-400/50" : "border-rub"
+  } ${k.aktivan ? "" : "opacity-60"}`;
+  const zaglavlje = (
+    <div className="flex items-start justify-between gap-3">
+      <div className="min-w-0">
+        <p className="flex items-center gap-2">
+          <span className="truncate text-lg font-semibold">{k.ime || k.email}</span>
+          <OznakaNacina nacin={k.nacin} />
+        </p>
+        <p className="mt-0.5 flex items-center gap-1.5 text-sm text-tekst-2">
+          <span
+            className={`inline-flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-bold text-black ${boja}`}
+            aria-hidden="true"
+          >
+            {ikona}
+          </span>
+          {a.opis}
+        </p>
       </div>
+      <span className="text-2xl text-tekst-2" aria-hidden="true">
+        ›
+      </span>
+    </div>
+  );
+
+  // klijent bez računa: umjesto praznih podataka gumb za slanje pozivnice
+  if (!k.registriran && k.aktivan) {
+    return (
+      <div className={okvir}>
+        <Link href={`/trener/klijent?id=${k.id}`} className="active:scale-[0.99]">
+          {zaglavlje}
+        </Link>
+        <PozivnicaKlijenta k={k} pozivnica={pozivnica} />
+      </div>
+    );
+  }
+
+  return (
+    <Link href={`/trener/klijent?id=${k.id}`} className={`${okvir} active:scale-[0.99]`}>
+      {zaglavlje}
       <div className="grid grid-cols-3 gap-2 text-sm">
         <Podatak
           oznaka="Danas"
@@ -306,6 +325,54 @@ export function KarticaKlijenta({ k }: { k: PregledKlijenta }) {
         </div>
       </div>
     </Link>
+  );
+}
+
+/** Pozivnica klijenta bez računa (s kartice u popisu). Ako je link istekao ili poništen, napravi novi. */
+function PozivnicaKlijenta({ k, pozivnica }: { k: PregledKlijenta; pozivnica: Pozivnica | null }) {
+  const [otvorena, setOtvorena] = useState<Pozivnica | null>(null);
+  const [radi, setRadi] = useState(false);
+  const [greska, setGreska] = useState<string | null>(null);
+
+  async function otvori() {
+    if (pozivnica) {
+      setOtvorena(pozivnica);
+      return;
+    }
+    setRadi(true);
+    setGreska(null);
+    const sb = supabase();
+    // stara (istekla) pozivnica tog klijenta se briše, inače nova ne može nastati
+    await sb.from("pozivnice").delete().eq("profil_id", k.id).is("iskoristena_at", null);
+    const { data, error } = await sb
+      .from("pozivnice")
+      .insert({ ime: k.ime || "Klijent", profil_id: k.id })
+      .select()
+      .single();
+    setRadi(false);
+    if (error) return setGreska(prevediGresku(error.message));
+    setOtvorena(data as Pozivnica);
+  }
+
+  if (otvorena) {
+    const link = linkPozivnice(otvorena.kod);
+    return (
+      <div className="flex flex-col gap-2">
+        <p className="text-sm text-tekst-2">
+          Link vrijedi do {formatDatum(otvorena.vrijedi_do)} i može se iskoristiti samo jednom.
+        </p>
+        <LinkZaSlanje link={link} poruka={porukaPozivnice(k.ime, link)} />
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <Gumb varijanta="sporedni" malen className="w-full" onClick={otvori} disabled={radi}>
+        {radi ? "…" : "📨 Pošalji pozivnicu"}
+      </Gumb>
+      {greska && <Poruka tip="greska">{greska}</Poruka>}
+    </>
   );
 }
 

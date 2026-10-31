@@ -8,6 +8,7 @@ import { Prehrana } from "@/components/prehrana/Prehrana";
 import { Poruka, Ucitavanje } from "@/components/ui";
 import { aktivnost, type Aktivnost } from "@/lib/aktivnost";
 import { danasZagreb, formatDatum } from "@/lib/datum";
+import { prevediGresku } from "@/lib/greske";
 import type { Profil } from "@/lib/tipovi";
 import { supabase } from "@/lib/supabase/client";
 import { ArhivaKlijenta } from "./ArhivaKlijenta";
@@ -38,6 +39,8 @@ type Ucitano = {
   aktivnost: Aktivnost | null;
   /** koliko puta nije došao na trening (ovaj mjesec i ukupno) */
   izostanci: { mjesec: number; ukupno: number };
+  /** otvorena pozivnica klijenta bez računa */
+  pozivnica: { id: string; vrijedi_do: string } | null;
   greskaVeze: boolean;
 };
 
@@ -64,7 +67,14 @@ export function KlijentDetalji() {
       // pregled samo ovog klijenta (brže nego računati sve)
       sb.rpc("pregled_klijenata", { p_klijent: id }),
       sb.from("treninzi").select("datum").eq("klijent_id", id).eq("nije_dosao", true),
-    ]).then(([p, pregled, izostanci]) => {
+      sb
+        .from("pozivnice")
+        .select("id, vrijedi_do")
+        .eq("profil_id", id)
+        .is("iskoristena_at", null)
+        .gt("vrijedi_do", new Date().toISOString())
+        .maybeSingle(),
+    ]).then(([p, pregled, izostanci, pozivnica]) => {
       if (!aktivno) return;
       const red = ((pregled.data as Record<string, unknown>[] | null) ?? []).find((r) => r.id === id);
       const profil = (p.data as Profil | null) ?? null;
@@ -81,6 +91,7 @@ export function KlijentDetalji() {
           mjesec: (izostanci.data ?? []).filter((r) => String(r.datum).slice(0, 7) === danasZagreb().slice(0, 7)).length,
           ukupno: (izostanci.data ?? []).length,
         },
+        pozivnica: (pozivnica.data as { id: string; vrijedi_do: string } | null) ?? null,
         greskaVeze: Boolean(p.error),
       });
     });
@@ -93,6 +104,24 @@ export function KlijentDetalji() {
     if (!ucitano?.profil || ucitano.profil.nacin === novi) return;
     const { error } = await supabase().rpc("postavi_nacin", { p_klijent: ucitano.profil.id, p_nacin: novi });
     if (!error) setUcitano({ ...ucitano, profil: { ...ucitano.profil, nacin: novi } });
+  }
+
+  async function ponistiPozivnicu() {
+    if (!ucitano?.profil || !ucitano.pozivnica) return;
+    const ime = ucitano.profil.ime || ucitano.profil.email;
+    if (
+      !window.confirm(
+        `Poništiti pozivnicu za ${ime}? Link koji si mu poslao više neće raditi. Klijent i njegovi podaci ostaju, a novu pozivnicu možeš poslati s popisa klijenata.`,
+      )
+    ) {
+      return;
+    }
+    const { error } = await supabase().from("pozivnice").delete().eq("id", ucitano.pozivnica.id);
+    if (error) {
+      window.alert(prevediGresku(error.message));
+      return;
+    }
+    setUcitano({ ...ucitano, pozivnica: null });
   }
 
   function promijeniKarticu(k: Kartica) {
@@ -147,6 +176,14 @@ export function KlijentDetalji() {
             <p className="truncate text-tekst-2">
               {profil.registriran === false ? "Još nema račun – pošalji mu pozivnicu" : profil.email}
             </p>
+            {profil.registriran === false && ucitano?.pozivnica && (
+              <p className="text-sm text-tekst-2">
+                Pozivnica vrijedi do {formatDatum(ucitano.pozivnica.vrijedi_do)} ·{" "}
+                <button type="button" onClick={ponistiPozivnicu} className="py-1 font-medium text-red-300">
+                  Poništi pozivnicu
+                </button>
+              </p>
+            )}
             <p className="text-sm text-tekst-2">Klijent od {formatDatum(profil.kreirano)}</p>
             {ucitano && ucitano.izostanci.ukupno > 0 && (
               <p className="text-sm text-amber-200">
