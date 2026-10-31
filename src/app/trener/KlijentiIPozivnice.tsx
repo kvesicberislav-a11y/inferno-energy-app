@@ -152,7 +152,7 @@ export function KlijentiIPozivnice() {
         </div>
       )}
 
-      <NovaPozivnica naPromjenu={ucitaj} />
+      <NoviKlijent naPromjenu={ucitaj} />
       <LinkZaInstalaciju />
 
       {pozivnice === null || klijenti === null ? (
@@ -170,7 +170,7 @@ export function KlijentiIPozivnice() {
 
           <section className="flex flex-col gap-3">
             {klijenti.length === 0 && arhivirani.length === 0 ? (
-              <Poruka>Još nema klijenata. Pozovi prvog gumbom iznad.</Poruka>
+              <Poruka>Još nema klijenata. Dodaj prvog gumbom iznad.</Poruka>
             ) : (
               <>
                 <div className="-mx-4 flex items-center gap-2 overflow-x-auto px-4 pb-1">
@@ -411,79 +411,102 @@ function Podatak({
   );
 }
 
-function NovaPozivnica({ naPromjenu }: { naPromjenu: () => void }) {
+/** „+ Dodaj klijenta”: klijent odmah postoji (bez računa), pozivnica se šalje kasnije s njegove kartice. */
+function NoviKlijent({ naPromjenu }: { naPromjenu: () => void }) {
   const [otvoreno, setOtvoreno] = useState(false);
   const [ime, setIme] = useState("");
-  const [salje, setSalje] = useState(false);
+  const [nacin, setNacin] = useState<"uzivo" | "online">("uzivo");
+  const [sprema, setSprema] = useState(false);
   const [greska, setGreska] = useState<string | null>(null);
-  const [nova, setNova] = useState<Pozivnica | null>(null);
+  const [dodan, setDodan] = useState<string | null>(null);
 
-  async function napravi(e: FormEvent) {
+  async function dodaj(e: FormEvent) {
     e.preventDefault();
+    const novo = ime.trim().replace(/\s+/g, " ");
+    if (novo.length < 2) return setGreska("Upiši ime i prezime.");
     setGreska(null);
-    setSalje(true);
-    const { data, error } = await supabase()
-      .from("pozivnice")
-      .insert({ ime: ime.trim() })
-      .select()
-      .single();
-    setSalje(false);
+    setSprema(true);
+    const { error } = await supabase().rpc("dodaj_klijenta", { p_ime: novo, p_nacin: nacin });
+    setSprema(false);
     if (error) return setGreska(prevediGresku(error.message));
-    setNova(data as Pozivnica);
+    setDodan(novo);
     setIme("");
+    setNacin("uzivo");
+    setOtvoreno(false);
     naPromjenu();
   }
 
   function zatvori() {
     setOtvoreno(false);
-    setNova(null);
     setGreska(null);
   }
 
   if (!otvoreno) {
-    return <Gumb onClick={() => setOtvoreno(true)}>+ Pozovi klijenta</Gumb>;
+    return (
+      <>
+        <Gumb
+          onClick={() => {
+            setDodan(null);
+            setOtvoreno(true);
+          }}
+        >
+          + Dodaj klijenta
+        </Gumb>
+        {dodan && (
+          <Poruka tip="uspjeh">
+            {dodan} je dodan. Već mu možeš slagati termine i treninge, a pozivnicu pošalji kad želiš – gumb je na
+            njegovoj kartici.
+          </Poruka>
+        )}
+      </>
+    );
   }
 
   return (
     <Kartica className="flex flex-col gap-4">
-      {nova ? (
-        <>
-          <p className="text-lg font-semibold">Pozivnica za {nova.ime} je spremna</p>
-          <p className="text-tekst-2">
-            Pošalji link klijentu. Vrijedi do {formatDatum(nova.vrijedi_do)} i može se iskoristiti
-            samo jednom.
-          </p>
-          <LinkZaSlanje
-            link={linkPozivnice(nova.kod)}
-            poruka={porukaPozivnice(nova.ime, linkPozivnice(nova.kod))}
-          />
-          <Gumb varijanta="sporedni" onClick={zatvori}>
-            Gotovo
+      <form onSubmit={dodaj} className="flex flex-col gap-4">
+        <p className="text-lg font-semibold">Novi klijent</p>
+        <Polje
+          id="ime-klijenta"
+          oznaka="Ime i prezime klijenta"
+          autoComplete="off"
+          autoCapitalize="words"
+          autoFocus
+          required
+          maxLength={100}
+          value={ime}
+          onChange={(e) => setIme(e.target.value)}
+        />
+        <div className="grid grid-cols-2 gap-1 rounded-2xl border border-rub bg-povrsina-2 p-1" role="group" aria-label="Način rada">
+          {(
+            [
+              ["uzivo", "Uživo"],
+              ["online", "Online"],
+            ] as const
+          ).map(([k, o]) => (
+            <button
+              key={k}
+              type="button"
+              onClick={() => setNacin(k)}
+              aria-pressed={nacin === k}
+              className={`h-10 rounded-xl text-sm font-semibold transition ${
+                nacin === k ? (k === "online" ? "bg-sky-500/25 text-sky-100" : "bg-vatra/25 text-orange-100") : "text-tekst-2"
+              }`}
+            >
+              {o}
+            </button>
+          ))}
+        </div>
+        {greska && <Poruka tip="greska">{greska}</Poruka>}
+        <div className="grid grid-cols-2 gap-3">
+          <Gumb type="button" varijanta="sporedni" onClick={zatvori}>
+            Odustani
           </Gumb>
-        </>
-      ) : (
-        <form onSubmit={napravi} className="flex flex-col gap-4">
-          <p className="text-lg font-semibold">Nova pozivnica</p>
-          <Polje
-            id="ime-klijenta"
-            oznaka="Ime i prezime klijenta"
-            autoComplete="off"
-            required
-            maxLength={100}
-            value={ime}
-            onChange={(e) => setIme(e.target.value)}
-          />
-          {greska && <Poruka tip="greska">{greska}</Poruka>}
-          <div className="grid grid-cols-2 gap-3">
-            <Gumb type="button" varijanta="sporedni" onClick={zatvori}>
-              Odustani
-            </Gumb>
-            <Gumb type="submit" disabled={salje || !ime.trim()}>
-              {salje ? "…" : "Napravi"}
-            </Gumb>
-          </div>
-        </form>
-      )}
+          <Gumb type="submit" disabled={sprema || !ime.trim()}>
+            {sprema ? "…" : "Dodaj"}
+          </Gumb>
+        </div>
+      </form>
     </Kartica>
   );
 }

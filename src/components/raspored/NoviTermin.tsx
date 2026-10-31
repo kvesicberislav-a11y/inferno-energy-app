@@ -12,23 +12,31 @@ import { obavijestiKlijenta } from "./useRaspored";
 
 const POLJE =
   "h-12 w-full rounded-2xl border border-rub bg-povrsina-2 px-4 text-base text-tekst outline-none focus:border-vatra";
+const POLJE_MALO =
+  "h-11 min-w-0 rounded-xl border border-rub bg-povrsina-2 px-2 text-base text-tekst outline-none focus:border-vatra";
 
-/** Trener: novi termin iz kalendara – jedan ili više klijenata, svaki tjedan ili samo jednom. */
+export type MjestoTermina = { datum: string; vrijeme: string };
+
+const brojTermina = (n: number) => (n === 1 ? "termin" : "termina");
+
+/**
+ * Trener: novi termin iz kalendara – jedan ili više klijenata, jedan ili više dana
+ * (Ctrl + klik u kalendaru ili „+ Još jedan dan”), svaki tjedan ili samo jednom.
+ */
 export function NoviTermin({
-  datum: pocetniDatum,
-  vrijeme: pocetnoVrijeme,
+  termini: pocetni,
   onGotovo,
   onZatvori,
 }: {
-  datum: string;
-  vrijeme: string;
+  termini: MjestoTermina[];
   onGotovo: (poruka: string) => void;
   onZatvori: () => void;
 }) {
   const [klijenti, setKlijenti] = useState<{ id: string; ime: string }[] | null>(null);
   const [odabrani, setOdabrani] = useState<string[]>([]);
-  const [datum, setDatum] = useState(pocetniDatum);
-  const [vrijeme, setVrijeme] = useState(pocetnoVrijeme);
+  const [redovi, setRedovi] = useState<MjestoTermina[]>(() =>
+    [...pocetni].sort((a, b) => `${a.datum} ${a.vrijeme}`.localeCompare(`${b.datum} ${b.vrijeme}`)),
+  );
   const [trajanje, setTrajanje] = useState(60);
   const [stalni, setStalni] = useState(false);
   const [upit, setUpit] = useState("");
@@ -58,48 +66,79 @@ export function NoviTermin({
     setOdabrani((o) => (o.includes(id) ? o.filter((x) => x !== id) : [...o, id]));
   }
 
+  function promijeniRed(i: number, promjena: Partial<MjestoTermina>) {
+    setRedovi((r) => r.map((x, j) => (j === i ? { ...x, ...promjena } : x)));
+  }
+
+  function josJedanDan() {
+    setRedovi((r) => {
+      const zadnji = r[r.length - 1] ?? { datum: danasZagreb(), vrijeme: "18:00" };
+      return [...r, { datum: zadnji.datum ? dodajDane(zadnji.datum, 1) : danasZagreb(), vrijeme: zadnji.vrijeme || "18:00" }];
+    });
+  }
+
+  // isti dan i vrijeme upisan dvaput računa se jednom (stalni: isti dan u tjednu i vrijeme)
+  const kljucReda = (r: MjestoTermina) => (stalni ? `${danUTjednu(r.datum)}|${r.vrijeme}` : `${r.datum}|${r.vrijeme}`);
+  const jedinstveni = redovi.filter(
+    (r, i) => r.datum && r.vrijeme && redovi.findIndex((x) => x.datum && x.vrijeme && kljucReda(x) === kljucReda(r)) === i,
+  );
+  const opisRedova = (rr: MjestoTermina[]) =>
+    rr
+      .map((r) => (stalni ? `${DANI[danUTjednu(r.datum) - 1].toLowerCase()} u ${r.vrijeme}` : opisTermina(r)))
+      .join(", ");
+
   async function spremi() {
     if (odabrani.length === 0) return setGreska("Odaberi barem jednog klijenta.");
-    if (!datum || !vrijeme) return setGreska("Odaberi datum i vrijeme.");
-    if (!stalni && datum < danasZagreb()) return setGreska("Taj dan je prošao. Odaberi današnji ili kasniji datum.");
+    if (redovi.length === 0 || redovi.some((r) => !r.datum || !r.vrijeme)) return setGreska("Odaberi datum i vrijeme.");
+    if (!stalni && redovi.some((r) => r.datum < danasZagreb())) {
+      return setGreska("Neki dan je prošao. Odaberi današnji ili kasniji datum.");
+    }
     setGreska(null);
     setRadi(true);
     const sb = supabase();
-    // stalni termin ne počinje u prošlosti: prvi isti dan u tjednu od danas nadalje
-    let odDatuma = datum;
-    while (odDatuma < danasZagreb()) odDatuma = dodajDane(odDatuma, 7);
     const { error } = stalni
       ? await sb.from("termini_pravila").insert(
-          odabrani.map((k) => ({
-            klijent_id: k,
-            dan_u_tjednu: danUTjednu(datum),
-            vrijeme,
-            trajanje_min: trajanje,
-            od_datuma: odDatuma,
-          })),
+          jedinstveni.flatMap((r) => {
+            // stalni termin ne počinje u prošlosti: prvi isti dan u tjednu od danas nadalje
+            let odDatuma = r.datum;
+            while (odDatuma < danasZagreb()) odDatuma = dodajDane(odDatuma, 7);
+            return odabrani.map((k) => ({
+              klijent_id: k,
+              dan_u_tjednu: danUTjednu(r.datum),
+              vrijeme: r.vrijeme,
+              trajanje_min: trajanje,
+              od_datuma: odDatuma,
+            }));
+          }),
         )
-      : await sb
-          .from("termini_dodatni")
-          .insert(odabrani.map((k) => ({ klijent_id: k, datum, vrijeme, trajanje_min: trajanje })));
+      : await sb.from("termini_dodatni").insert(
+          jedinstveni.flatMap((r) =>
+            odabrani.map((k) => ({ klijent_id: k, datum: r.datum, vrijeme: r.vrijeme, trajanje_min: trajanje })),
+          ),
+        );
     if (error) {
       setRadi(false);
       return setGreska(prevediGresku(error.message));
     }
+    const kada = opisRedova(jedinstveni);
     const promjena = stalni
-      ? `Novi stalni termin (svaki tjedan): ${DANI[danUTjednu(datum) - 1]} u ${vrijeme}.`
-      : `Dodan je termin: ${opisTermina({ datum, vrijeme })}.`;
+      ? `Novi stalni ${jedinstveni.length === 1 ? "termin" : "termini"} (svaki tjedan): ${kada}.`
+      : jedinstveni.length === 1
+        ? `Dodan je termin: ${kada}.`
+        : `Dodani su termini: ${kada}.`;
     await Promise.all(odabrani.map((k) => obavijestiKlijenta(k, promjena)));
     setRadi(false);
     const imena = odabrani.map((id) => klijenti?.find((k) => k.id === id)?.ime.split(" ")[0] ?? "klijent").join(", ");
-    const kada = stalni ? `svaki tjedan, ${DANI[danUTjednu(datum) - 1].toLowerCase()} u ${vrijeme}` : opisTermina({ datum, vrijeme });
-    onGotovo(`Dodano – ${imena}: ${kada}.`);
+    onGotovo(`Dodano – ${imena}: ${stalni ? `svaki tjedan, ${kada}` : kada}.`);
   }
 
   const u = upit.trim().toLowerCase();
   const prikazani = (klijenti ?? []).filter((k) => !u || k.ime.toLowerCase().includes(u) || odabrani.includes(k.id));
+  const jedan = redovi.length === 1;
+  const ukupno = jedinstveni.length;
 
   return (
-    <Ploca naslov="Novi termin" onZatvori={onZatvori}>
+    <Ploca naslov={jedan ? "Novi termin" : `Novi termini (${ukupno})`} onZatvori={onZatvori}>
       <div className="flex flex-col gap-4">
         <div className="grid grid-cols-2 gap-1 rounded-2xl border border-rub bg-povrsina-2 p-1" role="group" aria-label="Ponavljanje">
           {(
@@ -120,21 +159,66 @@ export function NoviTermin({
           ))}
         </div>
 
-        <div className="grid grid-cols-2 gap-3">
-          <label className="flex flex-col gap-1">
-            <span className="text-sm text-tekst-2">{stalni ? "Od datuma" : "Datum"}</span>
-            <input type="date" value={datum} onChange={(e) => setDatum(e.target.value)} className={POLJE} />
-          </label>
-          <label className="flex flex-col gap-1">
-            <span className="text-sm text-tekst-2">Vrijeme</span>
-            <input type="time" value={vrijeme} onChange={(e) => setVrijeme(e.target.value)} className={POLJE} />
-          </label>
-        </div>
-        {stalni && datum && (
-          <p className="-mt-2 text-sm text-tekst-2">
-            Svaki {DANI[danUTjednu(datum) - 1].toLowerCase()} u {vrijeme || "…"}
-          </p>
+        {jedan ? (
+          <div className="grid grid-cols-2 gap-3">
+            <label className="flex flex-col gap-1">
+              <span className="text-sm text-tekst-2">{stalni ? "Od datuma" : "Datum"}</span>
+              <input
+                type="date"
+                value={redovi[0].datum}
+                onChange={(e) => promijeniRed(0, { datum: e.target.value })}
+                className={POLJE}
+              />
+            </label>
+            <label className="flex flex-col gap-1">
+              <span className="text-sm text-tekst-2">Vrijeme</span>
+              <input
+                type="time"
+                value={redovi[0].vrijeme}
+                onChange={(e) => promijeniRed(0, { vrijeme: e.target.value })}
+                className={POLJE}
+              />
+            </label>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-2">
+            <span className="text-sm text-tekst-2">
+              {stalni ? "Dani (od datuma)" : "Termini"} – {ukupno} {brojTermina(ukupno)}
+            </span>
+            {redovi.map((r, i) => (
+              <div key={i} className="grid grid-cols-[minmax(0,1fr)_7rem_2.75rem] items-center gap-2">
+                <input
+                  type="date"
+                  aria-label={`Datum ${i + 1}`}
+                  value={r.datum}
+                  onChange={(e) => promijeniRed(i, { datum: e.target.value })}
+                  className={POLJE_MALO}
+                />
+                <input
+                  type="time"
+                  aria-label={`Vrijeme ${i + 1}`}
+                  value={r.vrijeme}
+                  onChange={(e) => promijeniRed(i, { vrijeme: e.target.value })}
+                  className={POLJE_MALO}
+                />
+                <button
+                  type="button"
+                  aria-label={`Makni termin ${i + 1}`}
+                  onClick={() => setRedovi((rr) => rr.filter((_, j) => j !== i))}
+                  className="h-11 rounded-xl text-lg text-tekst-2 active:bg-povrsina-2"
+                >
+                  ✕
+                </button>
+              </div>
+            ))}
+          </div>
         )}
+        {stalni && redovi.every((r) => r.datum) && (
+          <p className="-mt-2 text-sm text-tekst-2">Svaki {opisRedova(jedinstveni) || "…"}</p>
+        )}
+        <button type="button" onClick={josJedanDan} className="-mt-1 self-start py-1 text-sm font-semibold text-vatra">
+          + Još jedan dan
+        </button>
 
         <div className="flex flex-col gap-2">
           <span className="text-sm text-tekst-2">Trajanje</span>
@@ -178,12 +262,12 @@ export function NoviTermin({
         </div>
 
         {greska && <Poruka tip="greska">{greska}</Poruka>}
-        <Gumb onClick={spremi} disabled={radi || odabrani.length === 0}>
+        <Gumb onClick={spremi} disabled={radi || odabrani.length === 0 || ukupno === 0}>
           {radi
             ? "Spremam…"
-            : odabrani.length > 1
-              ? `Dodaj termin (${odabrani.length} ${odabrani.length < 5 ? "klijenta" : "klijenata"})`
-              : "Dodaj termin"}
+            : `${ukupno > 1 ? `Dodaj ${ukupno} termina` : "Dodaj termin"}${
+                odabrani.length > 1 ? ` (${odabrani.length} ${odabrani.length < 5 ? "klijenta" : "klijenata"})` : ""
+              }`}
         </Gumb>
       </div>
     </Ploca>

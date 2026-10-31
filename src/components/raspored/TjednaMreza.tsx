@@ -68,6 +68,8 @@ export function TjednaMreza({
   siroko = false,
   visinaMreze,
   onPremjesti,
+  odabrana = [],
+  onOdaberi,
 }: {
   pon: string;
   danas: string;
@@ -85,6 +87,9 @@ export function TjednaMreza({
   visinaMreze?: number;
   /** računalo: termin se povuče mišem na drugo mjesto (ili na drugi termin = zamjena) */
   onPremjesti?: (t: Termin, cilj: CiljPremjestanja) => void;
+  /** računalo: polja odabrana Ctrl + klikom (više termina odjednom) */
+  odabrana?: { datum: string; vrijeme: string }[];
+  onOdaberi?: (datum: string, vrijeme: string) => void;
   onTermin: (t: Termin) => void;
   onPrazno: (datum: string, vrijeme: string) => void;
 }) {
@@ -187,11 +192,29 @@ export function TjednaMreza({
                 key={s}
                 type="button"
                 aria-label={`Novi termin ${danMjesec(d)} u ${s}:00`}
-                onClick={() => onPrazno(d, `${String(s).padStart(2, "0")}:00`)}
+                onClick={(e) => {
+                  const vrijeme = `${String(s).padStart(2, "0")}:00`;
+                  // Ctrl (Mac: Cmd) + klik = označi polje, pa se doda više termina odjednom
+                  if (onOdaberi && (e.ctrlKey || e.metaKey)) onOdaberi(d, vrijeme);
+                  else onPrazno(d, vrijeme);
+                }}
                 className="absolute inset-x-0 border-t border-rub/60 active:bg-vatra/20"
                 style={{ top: i * visinaSata, height: visinaSata }}
               />
             ))}
+
+            {/* polja odabrana Ctrl + klikom */}
+            {odabrana
+              .filter((o) => o.datum === d)
+              .map((o) => (
+                <div
+                  key={o.vrijeme}
+                  className="pointer-events-none absolute inset-x-0.5 z-30 rounded-md border-2 border-vatra bg-vatra/25 px-1 text-xs font-semibold text-orange-100"
+                  style={{ top: ((minute(o.vrijeme) - prviSat * 60) / 60) * visinaSata + 1, height: visinaSata - 2 }}
+                >
+                  ✓ {o.vrijeme}
+                </div>
+              ))}
 
             {/* gdje će termin sjesti kad se pusti */}
             {vuceni && cilj && "min" in cilj && cilj.datum === d && (

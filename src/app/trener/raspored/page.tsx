@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
 import { KopirajPlanove } from "@/components/raspored/KopirajPlanove";
 import { KopirajRaspored } from "@/components/raspored/KopirajRaspored";
-import { NoviTermin } from "@/components/raspored/NoviTermin";
+import { NoviTermin, type MjestoTermina } from "@/components/raspored/NoviTermin";
 import { TerminRadnje } from "@/components/raspored/TerminRadnje";
 import { premjestiTermin, vratiTermin, type Rezultat } from "@/components/raspored/premjestanje";
 import { TjednaMreza, type CiljPremjestanja } from "@/components/raspored/TjednaMreza";
@@ -79,7 +79,9 @@ function TjedniRaspored() {
   const oznake = useOznake(pon, ned, verzijaOznaka);
   const [trening, setTrening] = useState<Termin | null>(null);
   const [radnje, setRadnje] = useState<Termin | null>(null);
-  const [novi, setNovi] = useState<{ datum: string; vrijeme: string } | null>(null);
+  const [novi, setNovi] = useState<MjestoTermina[] | null>(null);
+  // računalo: Ctrl + klik na prazna polja označi više termina, pa se dodaju odjednom
+  const [odabir, setOdabir] = useState<MjestoTermina[]>([]);
   const [obavijest, setObavijest] = useState<string | null>(null);
   const [klijentFiltar, setKlijentFiltar] = useState<string>("");
   const [imeFiltra, setImeFiltra] = useState<string>("");
@@ -128,6 +130,24 @@ function TjedniRaspored() {
     const t = setTimeout(() => setObavijest(null), 8_000);
     return () => clearTimeout(t);
   }, [puni, obavijest]);
+
+  useEffect(() => {
+    // Esc poništi odabir polja
+    if (odabir.length === 0) return;
+    const naTipku = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOdabir([]);
+    };
+    window.addEventListener("keydown", naTipku);
+    return () => window.removeEventListener("keydown", naTipku);
+  }, [odabir.length]);
+
+  function odaberiPolje(datum: string, vrijeme: string) {
+    setOdabir((o) =>
+      o.some((x) => x.datum === datum && x.vrijeme === vrijeme)
+        ? o.filter((x) => !(x.datum === datum && x.vrijeme === vrijeme))
+        : [...o, { datum, vrijeme }],
+    );
+  }
 
   async function ukljuciPuniZaslon() {
     setPuni(true);
@@ -243,6 +263,7 @@ function TjedniRaspored() {
     setRadnje(null);
     setTrening(null);
     setNovi(null);
+    setOdabir([]);
     setKopiranjeRasporeda(false);
     setObavijest(poruka);
     osvjezi();
@@ -398,7 +419,7 @@ function TjedniRaspored() {
   );
 
   const gumbTermin = (
-    <Gumb malen onClick={() => setNovi({ datum: pon > danas ? pon : danas, vrijeme: "18:00" })}>
+    <Gumb malen onClick={() => setNovi([{ datum: pon > danas ? pon : danas, vrijeme: "18:00" }])}>
       + Termin
     </Gumb>
   );
@@ -458,8 +479,29 @@ function TjedniRaspored() {
       // puni zaslon: sati se rastegnu da cijeli dan stane u slobodni prostor (bez reda s danima)
       visinaMreze={puni && visinaPodrucja > 0 ? visinaPodrucja - 56 : undefined}
       onTermin={setTrening}
-      onPrazno={(datum, vrijeme) => setNovi({ datum, vrijeme })}
+      onPrazno={(datum, vrijeme) => setNovi([{ datum, vrijeme }])}
+      odabrana={odabir}
+      onOdaberi={racunalo || puni ? odaberiPolje : undefined}
     />
+  );
+
+  const trakaOdabira = odabir.length > 0 && (
+    <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-vatra/50 bg-povrsina p-3 text-sm shadow-lg">
+      <span>
+        <b>
+          Odabrano: {odabir.length} {odabir.length === 1 ? "polje" : "polja"}
+        </b>
+        <span className="text-tekst-2"> · Ctrl + klik za još, Esc poništava</span>
+      </span>
+      <div className="flex items-center gap-2">
+        <Gumb varijanta="sporedni" malen onClick={() => setOdabir([])}>
+          Poništi odabir
+        </Gumb>
+        <Gumb malen onClick={() => setNovi(odabir)}>
+          + Dodaj termine
+        </Gumb>
+      </div>
+    </div>
   );
 
   const prozori = (
@@ -509,7 +551,7 @@ function TjedniRaspored() {
         />
       )}
       {novi && (
-        <NoviTermin datum={novi.datum} vrijeme={novi.vrijeme} onGotovo={gotovo} onZatvori={() => setNovi(null)} />
+        <NoviTermin termini={novi} onGotovo={gotovo} onZatvori={() => setNovi(null)} />
       )}
     </>
   );
@@ -554,6 +596,7 @@ function TjedniRaspored() {
         {/* poruke iskaču na dnu, iznad kalendara */}
         <div className="pointer-events-none fixed inset-x-0 bottom-4 z-[45] flex justify-center px-3">
           <div className="pointer-events-auto flex w-full max-w-xl flex-col gap-2 rounded-2xl bg-pozadina/90 shadow-lg">
+            {trakaOdabira}
             {poruke}
             {greskaBrisanja && <Poruka tip="greska">{greskaBrisanja}</Poruka>}
           </div>
@@ -637,10 +680,15 @@ function TjedniRaspored() {
             {racunalo && (
               <span>
                 Povuci termin mišem: na prazno mjesto = premjesti, na drugi termin = zamijene mjesta (drži Ctrl = stavi ga uz
-                taj termin).
+                taj termin). Ctrl + klik na prazna polja = više termina odjednom.
               </span>
             )}
           </div>
+          {trakaOdabira && (
+            <div className="pointer-events-none fixed inset-x-0 bottom-4 z-[45] flex justify-center px-3">
+              <div className="pointer-events-auto w-full max-w-xl">{trakaOdabira}</div>
+            </div>
+          )}
           {greskaBrisanja && <Poruka tip="greska">{greskaBrisanja}</Poruka>}
           {raspored.termini.some((t) => !klijentFiltar || t.klijentId === klijentFiltar) && (
             <Gumb varijanta="opasni" onClick={obrisiTjedan} disabled={brise}>
