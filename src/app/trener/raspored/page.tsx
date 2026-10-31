@@ -6,12 +6,13 @@ import { NoviTermin } from "@/components/raspored/NoviTermin";
 import { TerminRadnje } from "@/components/raspored/TerminRadnje";
 import { TjednaMreza } from "@/components/raspored/TjednaMreza";
 import { TreningTermina } from "@/components/raspored/TreningTermina";
-import { useRaspored } from "@/components/raspored/useRaspored";
+import { ocistiPlanoveBezTermina, useRaspored } from "@/components/raspored/useRaspored";
 import { useDanas } from "@/components/useDanas";
 import { Zaglavlje } from "@/components/Zaglavlje";
 import { Zasticeno } from "@/components/Zasticeno";
 import { Cip, Gumb, Poruka, Stranica, Ucitavanje } from "@/components/ui";
 import { danMjesec, dodajDane, ponedjeljak } from "@/lib/datum";
+import { prevediGresku } from "@/lib/greske";
 import { kljucTreninga } from "@/lib/kalendar";
 import type { Termin } from "@/lib/raspored";
 import { supabase } from "@/lib/supabase/client";
@@ -64,6 +65,54 @@ function TjedniRaspored() {
   const [imeFiltra, setImeFiltra] = useState<string>("");
   const [skupineFiltar, setSkupineFiltar] = useState<string[]>([]);
   const [kopiranje, setKopiranje] = useState(false);
+  const [brise, setBrise] = useState(false);
+  const [greskaBrisanja, setGreskaBrisanja] = useState<string | null>(null);
+
+  /** Obriši sve termine prikazanog tjedna (ili samo odabranog klijenta). Stalni termini nestaju samo ovaj tjedan. */
+  async function obrisiTjedan() {
+    if (!raspored) return;
+    const za = raspored.termini.filter((t) => !klijentFiltar || t.klijentId === klijentFiltar);
+    if (za.length === 0) return;
+    const tko = klijentFiltar ? ` za ${raspored.imena[klijentFiltar] ?? "klijenta"}` : "";
+    if (
+      !window.confirm(
+        `Obrisati sve termine u tjednu ${danMjesec(pon)} – ${danMjesec(ned)}${tko} (${za.length})?
+
+` +
+          "Stalni termini nestaju samo ovaj tjedan, sljedeći tjedni ostaju. " +
+          "Planovi treninga bez upisanih serija se brišu, upisane serije ostaju.",
+      )
+    ) {
+      return;
+    }
+    setGreskaBrisanja(null);
+    setBrise(true);
+    const sb = supabase();
+    const iznimke = za
+      .filter((t) => t.pravilo)
+      .map((t) => ({
+        pravilo_id: t.pravilo!.id,
+        datum: t.izvorniDatum ?? t.datum,
+        otkazan: true,
+        obrisan: true,
+        novi_datum: null,
+        novo_vrijeme: null,
+      }));
+    const dodatni = za.filter((t) => t.dodatni).map((t) => t.dodatni!.id);
+    const rez = await Promise.all([
+      iznimke.length
+        ? sb.from("termini_iznimke").upsert(iznimke, { onConflict: "pravilo_id,datum" })
+        : Promise.resolve({ error: null }),
+      dodatni.length ? sb.from("termini_dodatni").delete().in("id", dodatni) : Promise.resolve({ error: null }),
+    ]);
+    const g = rez.find((r) => r.error)?.error;
+    if (!g) {
+      await Promise.all([...new Set(za.map((t) => t.klijentId))].map((k) => ocistiPlanoveBezTermina(k, pon).catch(() => undefined)));
+    }
+    setBrise(false);
+    if (g) return setGreskaBrisanja(prevediGresku(g.message));
+    gotovo(`Obrisano ${za.length} ${za.length === 1 ? "termin" : "termina"} u tjednu ${danMjesec(pon)} – ${danMjesec(ned)}.`);
+  }
 
   function gotovo(poruka: string) {
     setRadnje(null);
@@ -217,6 +266,16 @@ function TjedniRaspored() {
           {aktivniTermini.length > 0 && (
             <Gumb varijanta="sporedni" onClick={() => setKopiranje(true)}>
               Kopiraj planove s ranijeg tjedna
+            </Gumb>
+          )}
+          {greskaBrisanja && <Poruka tip="greska">{greskaBrisanja}</Poruka>}
+          {raspored.termini.some((t) => !klijentFiltar || t.klijentId === klijentFiltar) && (
+            <Gumb varijanta="opasni" onClick={obrisiTjedan} disabled={brise}>
+              {brise
+                ? "Brišem…"
+                : klijentFiltar
+                  ? `Obriši tjedan – samo ${(raspored.imena[klijentFiltar] ?? "klijent").split(" ")[0]}`
+                  : "Obriši cijeli tjedan"}
             </Gumb>
           )}
         </>
