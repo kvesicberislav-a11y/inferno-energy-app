@@ -14,6 +14,7 @@ import { ArhivaKlijenta } from "./ArhivaKlijenta";
 import { BazneVjezbe } from "./BazneVjezbe";
 import { Biljeske } from "./Biljeske";
 import { CiljeviForma } from "./CiljeviForma";
+import { ImeKlijenta } from "./ImeKlijenta";
 import { Izvoz } from "./Izvoz";
 import { NovaLozinka } from "./NovaLozinka";
 import { PovijestTreninga } from "./PovijestTreninga";
@@ -137,8 +138,12 @@ export function KlijentDetalji() {
       {natrag}
       <div className="flex flex-col gap-2">
         <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <h1 className="text-2xl font-bold">{ime}</h1>
+          <div className="min-w-0 flex-1">
+            <ImeKlijenta
+              klijentId={profil.id}
+              ime={ime}
+              onPromjena={(novo) => setUcitano({ ...ucitano!, profil: { ...profil, ime: novo } })}
+            />
             <p className="truncate text-tekst-2">
               {profil.registriran === false ? "Još nema račun – pošalji mu pozivnicu" : profil.email}
             </p>
