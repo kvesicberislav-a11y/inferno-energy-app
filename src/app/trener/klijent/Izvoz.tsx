@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Ploca } from "@/components/Ploca";
+import { OdabirPracenih, usePraceneVjezbe } from "@/components/napredak/PraceneVjezbe";
 import { Cip, Gumb, Poruka } from "@/components/ui";
 import { danasZagreb } from "@/lib/datum";
 import { dohvatiPodatkeIzvoza, imeZaDatoteku } from "@/lib/izvoz/podaci";
@@ -22,13 +23,18 @@ export function Izvoz({ klijentId, ime }: { klijentId: string; ime: string }) {
   const [radi, setRadi] = useState<"Excel" | "PDF" | null>(null);
   const [gotova, setGotova] = useState<Gotova | null>(null);
   const [greska, setGreska] = useState<string | null>(null);
+  // napredak po vježbi: sve ili samo praćene (odabir se pamti za klijenta)
+  const pracene = usePraceneVjezbe(klijentId);
+  const [samoOdabrane, setSamoOdabrane] = useState<boolean | null>(null);
+  const odabrane = samoOdabrane ?? pracene.ids.size > 0;
+  const [biranje, setBiranje] = useState(false);
 
   async function izvezi(vrsta: "Excel" | "PDF") {
     setGreska(null);
     setGotova(null);
     setRadi(vrsta);
     try {
-      const podaci = await dohvatiPodatkeIzvoza(klijentId, dana);
+      const podaci = await dohvatiPodatkeIzvoza(klijentId, dana, odabrane ? [...pracene.ids] : null);
       const osnova = `INFERNO_${imeZaDatoteku(ime)}_${danasZagreb()}`;
       if (vrsta === "Excel") {
         const { napraviExcel } = await import("@/lib/izvoz/excel");
@@ -83,23 +89,57 @@ export function Izvoz({ klijentId, ime }: { klijentId: string; ime: string }) {
           </div>
         </div>
 
+        <div className="flex flex-col gap-2">
+          <span className="text-sm font-medium text-tekst-2">Napredak po vježbi</span>
+          <div className="grid grid-cols-2 gap-2">
+            <Cip aktivan={!odabrane} onClick={() => setSamoOdabrane(false)}>
+              Sve vježbe
+            </Cip>
+            <Cip
+              aktivan={odabrane}
+              disabled={!pracene.ucitano}
+              onClick={() => {
+                setSamoOdabrane(true);
+                if (pracene.ids.size === 0) setBiranje(true);
+              }}
+            >
+              Odabrane ({pracene.ids.size})
+            </Cip>
+          </div>
+          {odabrane && (
+            <button type="button" onClick={() => setBiranje(true)} className="self-start py-1 text-sm font-semibold text-vatra">
+              Uredi odabir vježbi
+            </button>
+          )}
+        </div>
+
         <div className="flex flex-col gap-3">
-          <Gumb onClick={() => izvezi("PDF")} disabled={radi !== null}>
+          <Gumb onClick={() => izvezi("PDF")} disabled={radi !== null || (odabrane && pracene.ids.size === 0)}>
             {radi === "PDF" ? "Izrađujem PDF…" : "PDF izvještaj o napretku"}
           </Gumb>
           <p className="-mt-1 text-xs text-tekst-2">
-            Pregled za klijenta: mjere i promjene, BMI i % masti, prehrana prema cilju, treninzi i najbolje serije, s
-            grafovima.
+            Pregled za klijenta: mjere i promjene, BMI i % masti, prehrana prema cilju, treninzi, najbolje serije i
+            napredak svake vježbe, s grafovima.
           </p>
-          <Gumb varijanta="sporedni" onClick={() => izvezi("Excel")} disabled={radi !== null}>
+          <Gumb varijanta="sporedni" onClick={() => izvezi("Excel")} disabled={radi !== null || (odabrane && pracene.ids.size === 0)}>
             {radi === "Excel" ? "Izrađujem Excel…" : "Excel tablica (svi podaci)"}
           </Gumb>
           <p className="-mt-1 text-xs text-tekst-2">
-            Listovi: sažetak, prehrana po danima, svi obroci, mjerenja, treninzi (svaka serija) i povijest ciljeva.
+            Listovi: sažetak, prehrana po danima, svi obroci, mjerenja, treninzi (svaka serija), napredak po vježbi i po
+            mjesecima te povijest ciljeva.
           </p>
         </div>
 
         {greska && <Poruka tip="greska">{greska}</Poruka>}
+
+        {biranje && (
+          <OdabirPracenih
+            klijentId={klijentId}
+            odabrane={pracene.ids}
+            onPromjena={() => pracene.osvjezi()}
+            onZatvori={() => setBiranje(false)}
+          />
+        )}
 
         {gotova && (
           <div className="flex flex-col gap-3 rounded-2xl border border-emerald-500/40 bg-emerald-500/10 p-3">

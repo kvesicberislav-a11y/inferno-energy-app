@@ -24,11 +24,13 @@ export function nazivMjeseca(mjesec: string) {
 
 const bolji = (a: DanVjezbe, b: DanVjezbe) => (b.kg > a.kg || (b.kg === a.kg && b.ponavljanja > a.ponavljanja) ? b : a);
 
-/** Sve vježbe iz treninga, najčešće prve. */
-export function napredakPoVjezbama(treninzi: TreningIzvoza[]): NapredakVjezbe[] {
+/** Vježbe iz treninga (sve ili samo praćene), najčešće prve. */
+export function napredakPoVjezbama(treninzi: TreningIzvoza[], samo: string[] | null = null): NapredakVjezbe[] {
+  const odabrane = samo?.length ? new Set(samo) : null;
   const po = new Map<string, Map<string, DanVjezbe>>();
   for (const t of treninzi) {
     for (const s of t.serije) {
+      if (odabrane && !odabrane.has(s.vjezbaId)) continue;
       const dani = po.get(s.vjezba) ?? new Map<string, DanVjezbe>();
       const d = dani.get(t.datum);
       const ova = { datum: t.datum, kg: s.kg, ponavljanja: s.ponavljanja, serija: 1, volumen: s.kg * s.ponavljanja };

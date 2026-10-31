@@ -7,6 +7,7 @@ import { danMjesec } from "@/lib/datum";
 import { prevediGresku } from "@/lib/greske";
 import { formatG } from "@/lib/makroi";
 import { supabase } from "@/lib/supabase/client";
+import { usePraceneVjezbe } from "./PraceneVjezbe";
 
 type Dan = { datum: string; kg: number; ponavljanja: number; serija: number };
 type Vjezba = { id: string; naziv: string; skupina: string; dani: Dan[] };
@@ -17,6 +18,9 @@ export function NapredakVjezbi({ klijentId, od, danas }: { klijentId: string; od
   const kljuc = `${klijentId}|${od}|${danas}`;
   const [stanje, setStanje] = useState<Stanje | null>(null);
   const [odabrana, setOdabrana] = useState<string | null>(null);
+  // trener je odabrao praćene vježbe → prikazuju se samo one (ostale na „Prikaži sve vježbe”)
+  const pracene = usePraceneVjezbe(klijentId);
+  const [sve, setSve] = useState(false);
 
   useEffect(() => {
     let aktivno = true;
@@ -47,7 +51,9 @@ export function NapredakVjezbi({ klijentId, od, danas }: { klijentId: string; od
     };
   }, [klijentId, od, danas, kljuc]);
 
-  const vjezbe = stanje?.kljuc === kljuc ? stanje.vjezbe : (stanje?.vjezbe ?? []);
+  const sveVjezbe = stanje?.kljuc === kljuc ? stanje.vjezbe : (stanje?.vjezbe ?? []);
+  const imaOdabir = pracene.ids.size > 0 && sveVjezbe.some((x) => pracene.ids.has(x.id));
+  const vjezbe = imaOdabir && !sve ? sveVjezbe.filter((x) => pracene.ids.has(x.id)) : sveVjezbe;
   const v = vjezbe.find((x) => x.id === odabrana) ?? vjezbe[0] ?? null;
   // vježbe bez utega (npr. sklekovi) prate se po ponavljanjima
   const poKg = v ? v.dani.some((d) => d.kg > 0) : true;
@@ -90,6 +96,12 @@ export function NapredakVjezbi({ klijentId, od, danas }: { klijentId: string; od
               </option>
             ))}
           </select>
+          {imaOdabir && (
+            <label className="flex items-center gap-2 text-sm text-tekst-2">
+              <input type="checkbox" checked={sve} onChange={(e) => setSve(e.target.checked)} className="h-5 w-5 accent-vatra" />
+              Prikaži sve vježbe ({sveVjezbe.length}) – inače samo odabrane ({vjezbe.length})
+            </label>
+          )}
           {v && prvi && zadnji && najbolji && (
             <div className="grid grid-cols-3 gap-2 text-sm">
               <Podatak oznaka="Prvi put" vrijednost={opis(prvi)} ispod={danMjesec(prvi.datum)} />

@@ -189,14 +189,14 @@ export async function napraviPdf(p: PodaciIzvoza): Promise<Blob> {
     });
 
   // ---------- Napredak po vježbi (svaka vježba: graf najteže serije + sažetak po mjesecima) ----------
-  const napredak = napredakPoVjezbama(p.treninzi);
+  const napredak = napredakPoVjezbama(p.treninzi, p.praceneVjezbe);
   const serijaTekst = (v: NapredakVjezbe, d: DanVjezbe) =>
     v.poKg ? `${formatG(d.kg)} kg × ${d.ponavljanja}` : `${d.ponavljanja} pon.`;
   const napredakSadrzaj: Content[] = napredak.length
     ? [
         { ...(naslov("Napredak po vježbi") as object), pageBreak: "before" } as Content,
         {
-          text: "Za svaku vježbu: najteža serija na svakom treningu (graf) i sažetak po mjesecima. Najčešće vježbe su prve.",
+          text: `${p.praceneVjezbe ? "Odabrane vježbe" : "Sve vježbe"}: najteža serija na svakom treningu (graf) i sažetak po mjesecima. Najčešće vježbe su prve.`,
           color: SIVA,
           fontSize: 9,
           margin: [0, 0, 0, 4],

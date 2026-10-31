@@ -149,7 +149,7 @@ export async function napraviExcel(p: PodaciIzvoza): Promise<Blob> {
   ];
 
   // 6) Napredak po vježbi: najteža serija na svakom treningu (za filtriranje i grafove u Excelu)
-  const napredak = napredakPoVjezbama(p.treninzi);
+  const napredak = napredakPoVjezbama(p.treninzi, p.praceneVjezbe);
   const napredakRedovi: Redak[] = [
     naslovi("Vježba", "Datum", "Najteža serija (kg)", "Ponavljanja", "Broj serija", "Volumen (kg)", "Razlika od prvog (kg)"),
     ...napredak.flatMap((v) =>

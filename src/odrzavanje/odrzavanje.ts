@@ -14,7 +14,10 @@ const ADRESA_APLIKACIJE = "https://inferno-energy-app.kvesic-berislav.workers.de
 
 /** Tablice za kopiju (push_pretplate namjerno ne – uređaji se sami ponovno prijave). */
 /** Tablice bez stupca id – stalni redoslijed za kopiju u dijelovima. */
-const REDOSLIJED: Record<string, string> = { bazne_vjezbe: "klijent_id,vjezba_id" };
+const REDOSLIJED: Record<string, string> = {
+  bazne_vjezbe: "klijent_id,vjezba_id",
+  pracene_vjezbe: "klijent_id,vjezba_id",
+};
 
 export const TABLICE = [
   "profili",
@@ -24,6 +27,7 @@ export const TABLICE = [
   "namirnice",
   "vjezbe",
   "bazne_vjezbe",
+  "pracene_vjezbe",
   "planovi",
   "plan_dani",
   "plan_vjezbe",

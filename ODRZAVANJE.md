@@ -59,7 +59,7 @@ npx wrangler kv key get stanje/zadnje --namespace-id 10a195615806466080fa9b0effc
 
 ## Promjene baze
 
-SQL datoteke `supabase/01…18_*.sql` pokreću se redom (na novom projektu sve, na postojećem samo nove):
+SQL datoteke `supabase/01…19_*.sql` pokreću se redom (na novom projektu sve, na postojećem samo nove):
 
 ```bash
 npx supabase@2.122.0 db query --linked --project-ref ifqoqzcsdwnkezvfuobv -f supabase/NN_naziv.sql

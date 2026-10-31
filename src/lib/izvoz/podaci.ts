@@ -6,7 +6,7 @@ import { supabase } from "@/lib/supabase/client";
 import { uMjerenje, uOsobnePodatke, type Mjerenje, type OsobniPodaci } from "@/lib/tijelo";
 import { jePlaniranTrening, uDodjeluZaPridrzavanje } from "@/lib/treninzi";
 
-export type SerijaIzvoza = { vjezba: string; redni: number; ponavljanja: number; kg: number };
+export type SerijaIzvoza = { vjezba: string; vjezbaId: string; redni: number; ponavljanja: number; kg: number };
 export type TreningIzvoza = { datum: string; naziv: string; zavrsen: boolean; serije: SerijaIzvoza[] };
 export type DanPrehrane = {
   datum: string;
@@ -22,6 +22,8 @@ export type PodaciIzvoza = {
   od: string; // prvi dan razdoblja
   doDana: string; // zadnji dan (danas)
   sveVrijeme: boolean;
+  /** vježbe za napredak u izvještaju (id-jevi) ili null = sve */
+  praceneVjezbe: string[] | null;
   plan: string | null;
   obroci: Obrok[];
   dani: DanPrehrane[]; // samo dani s unosom
@@ -56,7 +58,11 @@ async function sveStranice<T>(
 type Red = Record<string, unknown>;
 
 /** `dana` = broj dana unatrag (30, 90…) ili null za cijelo vrijeme. */
-export async function dohvatiPodatkeIzvoza(klijentId: string, dana: number | null): Promise<PodaciIzvoza> {
+export async function dohvatiPodatkeIzvoza(
+  klijentId: string,
+  dana: number | null,
+  praceneVjezbe: string[] | null = null,
+): Promise<PodaciIzvoza> {
   const sb = supabase();
   const doDana = danasZagreb();
 
@@ -88,7 +94,7 @@ export async function dohvatiPodatkeIzvoza(klijentId: string, dana: number | nul
     sveStranice<Red>((a, b) =>
       sb
         .from("treninzi")
-        .select("datum, naziv, zavrsen, iz_kalendara, trening_vjezbe(count), odradjene_serije(redni_broj, ponavljanja, kg, vjezba:vjezbe(naziv))")
+        .select("datum, naziv, zavrsen, iz_kalendara, trening_vjezbe(count), odradjene_serije(redni_broj, ponavljanja, kg, vjezba_id, vjezba:vjezbe(naziv))")
         .eq("klijent_id", klijentId)
         .gte("datum", od)
         .lte("datum", doDana)
@@ -129,6 +135,7 @@ export async function dohvatiPodatkeIzvoza(klijentId: string, dana: number | nul
         const v = (Array.isArray(s.vjezba) ? s.vjezba[0] : s.vjezba) as { naziv?: string } | null;
         return {
           vjezba: String(v?.naziv ?? "Vježba"),
+          vjezbaId: String(s.vjezba_id),
           redni: Number(s.redni_broj),
           ponavljanja: Number(s.ponavljanja),
           kg: Number(s.kg),
@@ -165,6 +172,7 @@ export async function dohvatiPodatkeIzvoza(klijentId: string, dana: number | nul
     od,
     doDana,
     sveVrijeme: dana === null,
+    praceneVjezbe: praceneVjezbe?.length ? praceneVjezbe : null,
     plan: dodjele.find((d) => d.do === null)?.naziv ?? null,
     obroci,
     dani: [...poDanu.values()],
