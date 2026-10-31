@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { KopirajPlanove } from "@/components/raspored/KopirajPlanove";
+import { KopirajRaspored } from "@/components/raspored/KopirajRaspored";
 import { NoviTermin } from "@/components/raspored/NoviTermin";
 import { TerminRadnje } from "@/components/raspored/TerminRadnje";
 import { TjednaMreza } from "@/components/raspored/TjednaMreza";
@@ -93,6 +94,7 @@ function TjedniRaspored() {
   const [imeFiltra, setImeFiltra] = useState<string>("");
   const [skupineFiltar, setSkupineFiltar] = useState<string[]>([]);
   const [kopiranje, setKopiranje] = useState(false);
+  const [kopiranjeRasporeda, setKopiranjeRasporeda] = useState(false);
   const [brise, setBrise] = useState(false);
   const [greskaBrisanja, setGreskaBrisanja] = useState<string | null>(null);
   const racunalo = useRacunalo();
@@ -169,6 +171,7 @@ function TjedniRaspored() {
     setRadnje(null);
     setTrening(null);
     setNovi(null);
+    setKopiranjeRasporeda(false);
     setObavijest(poruka);
     osvjezi();
     setVerzijaOznaka((v) => v + 1);
@@ -330,6 +333,15 @@ function TjedniRaspored() {
             {aktivniTermini.length} {aktivniTermini.length === 1 ? "termin" : "termina"} · {brojKlijenata}{" "}
             {brojKlijenata === 1 ? "klijent" : "klijenata"} · dodirni termin za trening, prazno polje za novi termin
           </p>
+          {/* novi tjedan: prvo raspored s ranijeg tjedna, prilagodi ga, pa planovi */}
+          <div className="grid grid-cols-2 gap-2 lg:mx-auto lg:w-full lg:max-w-xl">
+            <Gumb varijanta="sporedni" malen onClick={() => setKopiranjeRasporeda(true)}>
+              Kopiraj raspored
+            </Gumb>
+            <Gumb varijanta="sporedni" malen onClick={() => setKopiranje(true)} disabled={aktivniTermini.length === 0}>
+              Kopiraj planove
+            </Gumb>
+          </div>
           <TjednaMreza
             pon={pon}
             danas={danas}
@@ -353,11 +365,6 @@ function TjedniRaspored() {
             <span>✓ odrađen</span>
             <span>✗ nije došao</span>
           </div>
-          {aktivniTermini.length > 0 && (
-            <Gumb varijanta="sporedni" onClick={() => setKopiranje(true)}>
-              Kopiraj planove s ranijeg tjedna
-            </Gumb>
-          )}
           {greskaBrisanja && <Poruka tip="greska">{greskaBrisanja}</Poruka>}
           {raspored.termini.some((t) => !klijentFiltar || t.klijentId === klijentFiltar) && (
             <Gumb varijanta="opasni" onClick={obrisiTjedan} disabled={brise}>
@@ -405,6 +412,14 @@ function TjedniRaspored() {
             setVerzijaOznaka((v) => v + 1);
           }}
           onZatvori={() => setKopiranje(false)}
+        />
+      )}
+      {kopiranjeRasporeda && raspored && (
+        <KopirajRaspored
+          pon={pon}
+          postojeci={raspored.termini}
+          onGotovo={gotovo}
+          onZatvori={() => setKopiranjeRasporeda(false)}
         />
       )}
       {novi && (
