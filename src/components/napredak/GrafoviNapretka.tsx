@@ -9,6 +9,7 @@ import { ciljZaDan, formatG, formatKcal } from "@/lib/makroi";
 import { MJERE, format1, type KljucMjere, type Mjerenje } from "@/lib/tijelo";
 import { prviDatumKlijenta } from "@/lib/prviDatum";
 import { jePlaniranTrening } from "@/lib/treninzi";
+import { NapredakVjezbi } from "./NapredakVjezbi";
 import { useStatistika, type DanMakroa, type Statistika } from "./useStatistika";
 
 const RAZDOBLJA = [
@@ -124,6 +125,7 @@ export function GrafoviNapretka({
           {statistika.greska && <Poruka tip="greska">{statistika.greska}</Poruka>}
           <GrafPrehrane statistika={statistika} od={od} danas={danas} tjedno={tjedno} makro={makro} setMakro={setMakro} />
           <GrafVolumena statistika={statistika} od={od} danas={danas} />
+          <NapredakVjezbi klijentId={klijentId} od={od} danas={danas} />
           <Pridrzavanje statistika={statistika} od={od} danas={danas} pocetakPodataka={pocetakPodataka} />
         </div>
       )}
