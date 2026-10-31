@@ -17,11 +17,13 @@ const ADRESA_APLIKACIJE = "https://inferno-energy-app.kvesic-berislav.workers.de
 const REDOSLIJED: Record<string, string> = {
   bazne_vjezbe: "klijent_id,vjezba_id",
   pracene_vjezbe: "klijent_id,vjezba_id",
+  pripremljeni_podaci: "pozivnica_id",
 };
 
 export const TABLICE = [
   "profili",
   "pozivnice",
+  "pripremljeni_podaci",
   "ciljevi_makroa",
   "obroci",
   "namirnice",
