@@ -20,7 +20,7 @@ begin
   select id into v2 from public.vjezbe where vlasnik_id is null order by naziv offset 1 limit 1;
   select id into v3 from public.vjezbe where vlasnik_id is null and misicna_skupina <> (select misicna_skupina from public.vjezbe where id = v1) order by naziv limit 1;
 
-  -- pozivnica s pripremljenim podacima (2 treninga, 1 stalni termin, 2 jednokratna od kojih je 1 prošao, 3 bazne od kojih 1 ne postoji)
+  -- pozivnica s pripremljenim podacima (2 treninga, 1 stalni termin, 2 jednokratna – prošli i budući, 3 bazne od kojih 1 ne postoji)
   insert into public.pozivnice (ime, kreirao) values ('TEST prijenos', trener) returning id into p1;
   insert into public.pripremljeni_podaci (pozivnica_id, treninzi, termini, dodatni, bazne)
   values (p1,
@@ -83,7 +83,7 @@ begin
   select od_datuma into d from public.termini_pravila where klijent_id = u1 and dan_u_tjednu = 3 and vrijeme = '18:00';
   rez := rez || format(E'\n%s stalni termin od %s', case when d = greatest(danas, '2026-11-09'::date) then 'OK' else 'GRESKA' end, d);
   select count(*) into n from public.termini_dodatni where klijent_id = u1;
-  rez := rez || format(E'\n%s jednokratni bez prošlog (1): %s', case when n = 1 then 'OK' else 'GRESKA' end, n);
+  rez := rez || format(E'\n%s jednokratni, i prošli i budući (2): %s', case when n = 2 then 'OK' else 'GRESKA' end, n);
   select count(*) into n from public.pripremljeni_podaci where pozivnica_id = p1 and prenesen_at is not null and greska is null;
   rez := rez || format(E'\n%s označeno kao preneseno', case when n = 1 then 'OK' else 'GRESKA' end);
   rez := rez || format(E'\n%s drugi prijenos ne radi ništa', case when public.prenesi_pripremljene_podatke(p1) = 0 then 'OK' else 'GRESKA' end);
