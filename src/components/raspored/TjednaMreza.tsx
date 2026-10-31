@@ -9,7 +9,7 @@ import { DANI_KRATKO } from "@/lib/treninzi";
 
 const VISINA_SATA = 48; // px
 const PRVI_SAT = 7;
-const ZADNJI_SAT = 21; // zadnji red počinje u 20:00 i završava u 21:00
+const ZADNJI_SAT = 23; // zadnji red počinje u 22:00 i završava u 23:00
 
 /** 495 -> "08:15" */
 function uVrijeme(min: number) {
