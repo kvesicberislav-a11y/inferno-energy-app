@@ -1,19 +1,21 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { LinijskiGraf, StupciGraf, TablicaPodataka, type Tocka } from "@/components/grafovi/Grafovi";
 import { kompaktno } from "@/components/grafovi/osi";
 import { Cip, Kartica, Poruka, Ucitavanje } from "@/components/ui";
 import { brojDana, danMjesec, danasZagreb, datumZagreb, dodajDane, ponedjeljak } from "@/lib/datum";
 import { ciljZaDan, formatG, formatKcal } from "@/lib/makroi";
 import { MJERE, format1, type KljucMjere, type Mjerenje } from "@/lib/tijelo";
+import { prviDatumKlijenta } from "@/lib/prviDatum";
 import { jePlaniranTrening } from "@/lib/treninzi";
 import { useStatistika, type DanMakroa, type Statistika } from "./useStatistika";
 
 const RAZDOBLJA = [
   { dana: 30, oznaka: "30 dana" },
   { dana: 90, oznaka: "90 dana" },
-  { dana: 180, oznaka: "6 mjeseci" },
+  { dana: 180, oznaka: "6 mj." },
+  { dana: null, oznaka: "Sve" },
 ] as const;
 
 const MAKROI = [
@@ -45,10 +47,23 @@ export function GrafoviNapretka({
   kreirano: string;
 }) {
   const danas = danasZagreb();
-  const [dana, setDana] = useState<number>(30);
+  const [dana, setDana] = useState<number | null>(30);
+  // prvi dan s podacima (i prije registracije, npr. unesena povijest treninga)
+  const [prvi, setPrvi] = useState<{ za: string; datum: string } | null>(null);
+  useEffect(() => {
+    let aktivno = true;
+    prviDatumKlijenta(klijentId, kreirano).then((datum) => {
+      if (aktivno) setPrvi({ za: klijentId, datum });
+    });
+    return () => {
+      aktivno = false;
+    };
+  }, [klijentId, kreirano]);
+  const pocetakPodataka = prvi?.za === klijentId ? prvi.datum : datumZagreb(kreirano);
   const [mjera, setMjera] = useState<KljucMjere>("tezina_kg");
   const [makro, setMakro] = useState<KljucMakroa>("kcal");
-  const od = dodajDane(danas, -(dana - 1));
+  const od = dana === null ? pocetakPodataka : dodajDane(danas, -(dana - 1));
+  const tjedno = brojDana(od, danas) > 60;
   const { statistika, osvjezava } = useStatistika(klijentId, od, danas);
 
   const mjeraInfo = MJERE.find((m) => m.kljuc === mjera)!;
@@ -61,7 +76,7 @@ export function GrafoviNapretka({
       <div className="flex items-center gap-2">
         <span className="text-sm text-tekst-2">Razdoblje:</span>
         {RAZDOBLJA.map((r) => (
-          <Cip key={r.dana} aktivan={dana === r.dana} onClick={() => setDana(r.dana)}>
+          <Cip key={r.oznaka} aktivan={dana === r.dana} onClick={() => setDana(r.dana)}>
             {r.oznaka}
           </Cip>
         ))}
@@ -107,9 +122,9 @@ export function GrafoviNapretka({
       ) : (
         <div className={`flex flex-col gap-3 transition-opacity ${osvjezava ? "opacity-50" : ""}`}>
           {statistika.greska && <Poruka tip="greska">{statistika.greska}</Poruka>}
-          <GrafPrehrane statistika={statistika} od={od} danas={danas} dana={dana} makro={makro} setMakro={setMakro} />
+          <GrafPrehrane statistika={statistika} od={od} danas={danas} tjedno={tjedno} makro={makro} setMakro={setMakro} />
           <GrafVolumena statistika={statistika} od={od} danas={danas} />
-          <Pridrzavanje statistika={statistika} od={od} danas={danas} kreirano={kreirano} />
+          <Pridrzavanje statistika={statistika} od={od} danas={danas} pocetakPodataka={pocetakPodataka} />
         </div>
       )}
     </div>
@@ -120,20 +135,19 @@ function GrafPrehrane({
   statistika,
   od,
   danas,
-  dana,
+  tjedno,
   makro,
   setMakro,
 }: {
   statistika: Statistika;
   od: string;
   danas: string;
-  dana: number;
+  tjedno: boolean;
   makro: KljucMakroa;
   setMakro: (k: KljucMakroa) => void;
 }) {
   const info = MAKROI.find((m) => m.kljuc === makro)!;
   const poDanu = new Map(statistika.makroi.map((d) => [d.datum, d]));
-  const tjedno = dana > 60;
 
   const tocke: Tocka[] = tjedno
     ? tjedni(od, danas).map((t) => {
@@ -248,14 +262,14 @@ function Pridrzavanje({
   statistika,
   od,
   danas,
-  kreirano,
+  pocetakPodataka,
 }: {
   statistika: Statistika;
   od: string;
   danas: string;
-  kreirano: string;
+  pocetakPodataka: string;
 }) {
-  const pocetak = [od, datumZagreb(kreirano)].sort()[1];
+  const pocetak = [od, pocetakPodataka].sort()[1];
   const razdoblje = pocetak <= danas ? dani(pocetak, danas) : [];
 
   const daniSObrokom = new Set(statistika.makroi.map((d) => d.datum));

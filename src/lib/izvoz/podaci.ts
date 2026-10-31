@@ -1,6 +1,7 @@
 // Dohvat svih podataka jednog klijenta za izvoz (Excel / PDF).
-import { brojDana, danasZagreb, datumZagreb, dodajDane } from "@/lib/datum";
+import { brojDana, danasZagreb, dodajDane } from "@/lib/datum";
 import { ciljZaDan, uCilj, uObrok, type Cilj, type Obrok } from "@/lib/makroi";
+import { prviDatumKlijenta } from "@/lib/prviDatum";
 import { supabase } from "@/lib/supabase/client";
 import { uMjerenje, uOsobnePodatke, type Mjerenje, type OsobniPodaci } from "@/lib/tijelo";
 import { jePlaniranTrening, uDodjeluZaPridrzavanje } from "@/lib/treninzi";
@@ -66,8 +67,9 @@ export async function dohvatiPodatkeIzvoza(klijentId: string, dana: number | nul
     .maybeSingle();
   if (gp || !profil) throw new Error(gp?.message ?? "Klijent nije pronađen.");
 
-  const registriran = datumZagreb(String(profil.kreirano));
-  const od = dana === null ? registriran : [dodajDane(doDana, -(dana - 1)), registriran].sort()[1];
+  // od prvog podatka (može biti i prije registracije, npr. povijest unesena iz tablice)
+  const pocetak = await prviDatumKlijenta(klijentId, String(profil.kreirano));
+  const od = dana === null ? pocetak : [dodajDane(doDana, -(dana - 1)), pocetak].sort()[1];
 
   const [obrociRedovi, ciljeviR, mjerenjaR, treninziR, dodjeleR] = await Promise.all([
     sveStranice<Red>((a, b) =>
