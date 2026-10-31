@@ -70,6 +70,8 @@ export function TjednaMreza({
   onPremjesti,
   odabrana = [],
   onOdaberi,
+  odabraniTermini = [],
+  onOdaberiTermin,
 }: {
   pon: string;
   danas: string;
@@ -90,6 +92,9 @@ export function TjednaMreza({
   /** računalo: polja odabrana Ctrl + klikom (više termina odjednom) */
   odabrana?: { datum: string; vrijeme: string }[];
   onOdaberi?: (datum: string, vrijeme: string) => void;
+  /** računalo: termini označeni Ctrl + klikom (ključevi) – za brisanje više odjednom */
+  odabraniTermini?: string[];
+  onOdaberiTermin?: (t: Termin) => void;
   onTermin: (t: Termin) => void;
   onPrazno: (datum: string, vrijeme: string) => void;
 }) {
@@ -275,12 +280,19 @@ export function TjednaMreza({
                     setVuceni(null);
                     setCilj(null);
                   }}
-                  onClick={() => onTermin(t)}
+                  onClick={(e) => {
+                    // Ctrl (Mac: Cmd) + klik = označi termin, pa se briše više termina odjednom
+                    if (onOdaberiTermin && (e.ctrlKey || e.metaKey)) onOdaberiTermin(t);
+                    else onTermin(t);
+                  }}
+                  aria-pressed={onOdaberiTermin ? odabraniTermini.includes(t.kljuc) : undefined}
                   title={`${imena[t.klijentId] ?? "Klijent"} · ${t.vrijeme}${t.pravilo ? "" : " · samo jednom"}${oznaka?.nijeDosao ? " · nije došao" : ""}`}
                   className={`absolute z-20 overflow-hidden rounded-md border-2 px-0.5 text-left leading-tight shadow-sm active:scale-[0.97] ${
                     t.pravilo ? "border-solid" : "border-dashed"
                   } ${t.otkazan ? "line-through" : ""} ${prigusen || vuceni?.kljuc === t.kljuc ? "opacity-25" : ""} ${
                     cilj && "kljuc" in cilj && cilj.kljuc === t.kljuc ? "ring-2 ring-white ring-offset-1 ring-offset-black" : ""
+                  } ${
+                    odabraniTermini.includes(t.kljuc) ? "ring-2 ring-red-500" : ""
                   } ${onPremjesti && !t.otkazan ? "cursor-grab" : ""}`}
                   style={{
                     ...stil,
@@ -290,6 +302,15 @@ export function TjednaMreza({
                     width: `calc(${100 / stupaca}% - 2px)`,
                   }}
                 >
+                  {odabraniTermini.includes(t.kljuc) && (
+                    // označen za brisanje (Ctrl + klik)
+                    <span
+                      className="pointer-events-none absolute inset-0 flex items-start justify-end bg-red-500/50 p-0.5 text-xs"
+                      aria-hidden="true"
+                    >
+                      🗑
+                    </span>
+                  )}
                   <span className={`block truncate font-semibold ${siroko ? "text-sm" : "text-[11px]"}`}>
                     {oznaka?.zavrsen ? "✓ " : oznaka?.nijeDosao ? "✗ " : ""}
                     {jePomaknut(t) ? "↻ " : ""}

@@ -82,6 +82,8 @@ function TjedniRaspored() {
   const [novi, setNovi] = useState<MjestoTermina[] | null>(null);
   // računalo: Ctrl + klik na prazna polja označi više termina, pa se dodaju odjednom
   const [odabir, setOdabir] = useState<MjestoTermina[]>([]);
+  // računalo: Ctrl + klik na postojeće termine označi ih, pa se brišu odjednom
+  const [zaBrisanje, setZaBrisanje] = useState<Termin[]>([]);
   const [obavijest, setObavijest] = useState<string | null>(null);
   const [klijentFiltar, setKlijentFiltar] = useState<string>("");
   const [imeFiltra, setImeFiltra] = useState<string>("");
@@ -131,15 +133,71 @@ function TjedniRaspored() {
     return () => clearTimeout(t);
   }, [puni, obavijest]);
 
+  const imaOdabir = odabir.length > 0 || zaBrisanje.length > 0;
   useEffect(() => {
-    // Esc poništi odabir polja
-    if (odabir.length === 0) return;
+    // Esc poništi odabir polja i termina
+    if (!imaOdabir) return;
     const naTipku = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOdabir([]);
+      if (e.key === "Escape") {
+        setOdabir([]);
+        setZaBrisanje([]);
+      }
     };
     window.addEventListener("keydown", naTipku);
     return () => window.removeEventListener("keydown", naTipku);
-  }, [odabir.length]);
+  }, [imaOdabir]);
+
+  function odaberiTermin(t: Termin) {
+    setZaBrisanje((o) => (o.some((x) => x.kljuc === t.kljuc) ? o.filter((x) => x.kljuc !== t.kljuc) : [...o, t]));
+  }
+
+  /** Obriši termine označene Ctrl + klikom. Stalni termin nestaje samo taj dan, kao „Obriši samo ovaj termin”. */
+  async function obrisiOdabrane() {
+    const za = zaBrisanje;
+    if (za.length === 0) return;
+    if (
+      !window.confirm(
+        `Obrisati ${za.length} ${za.length === 1 ? "termin" : "termina"}?
+
+` + "Planovi treninga bez upisanih serija se brišu, upisane serije ostaju.",
+      )
+    ) {
+      return;
+    }
+    setGreskaBrisanja(null);
+    setBrise(true);
+    const sb = supabase();
+    const iznimke = za
+      .filter((t) => t.pravilo)
+      .map((t) => ({
+        pravilo_id: t.pravilo!.id,
+        datum: t.izvorniDatum ?? t.datum,
+        otkazan: true,
+        obrisan: true,
+        novi_datum: null,
+        novo_vrijeme: null,
+      }));
+    const dodatni = za.filter((t) => t.dodatni).map((t) => t.dodatni!.id);
+    const rez = await Promise.all([
+      iznimke.length
+        ? sb.from("termini_iznimke").upsert(iznimke, { onConflict: "pravilo_id,datum" })
+        : Promise.resolve({ error: null }),
+      dodatni.length ? sb.from("termini_dodatni").delete().in("id", dodatni) : Promise.resolve({ error: null }),
+    ]);
+    const g = rez.find((r) => r.error)?.error;
+    if (!g) {
+      // plan bez termina ide s terminom (od najranijeg obrisanog dana tog klijenta)
+      const odDana = new Map<string, string>();
+      for (const t of za) {
+        const d = [t.datum, t.izvorniDatum ?? t.datum].sort()[0];
+        if (!odDana.has(t.klijentId) || d < odDana.get(t.klijentId)!) odDana.set(t.klijentId, d);
+      }
+      await Promise.all([...odDana].map(([k, od]) => ocistiPlanoveBezTermina(k, od).catch(() => undefined)));
+    }
+    setBrise(false);
+    if (g) return setGreskaBrisanja(prevediGresku(g.message));
+    gotovo(`Obrisano ${za.length} ${za.length === 1 ? "termin" : "termina"}.`);
+  }
 
   function odaberiPolje(datum: string, vrijeme: string) {
     setOdabir((o) =>
@@ -264,6 +322,7 @@ function TjedniRaspored() {
     setTrening(null);
     setNovi(null);
     setOdabir([]);
+    setZaBrisanje([]);
     setKopiranjeRasporeda(false);
     setObavijest(poruka);
     osvjezi();
@@ -482,24 +541,46 @@ function TjedniRaspored() {
       onPrazno={(datum, vrijeme) => setNovi([{ datum, vrijeme }])}
       odabrana={odabir}
       onOdaberi={racunalo || puni ? odaberiPolje : undefined}
+      odabraniTermini={zaBrisanje.map((t) => t.kljuc)}
+      onOdaberiTermin={racunalo || puni ? odaberiTermin : undefined}
     />
   );
 
-  const trakaOdabira = odabir.length > 0 && (
+  const trakaOdabira = imaOdabir && (
     <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-vatra/50 bg-povrsina p-3 text-sm shadow-lg">
       <span>
         <b>
-          Odabrano: {odabir.length} {odabir.length === 1 ? "polje" : "polja"}
+          Odabrano:{" "}
+          {[
+            odabir.length > 0 && `${odabir.length} ${odabir.length === 1 ? "prazno polje" : "prazna polja"}`,
+            zaBrisanje.length > 0 && `${zaBrisanje.length} ${zaBrisanje.length === 1 ? "termin" : "termina"}`,
+          ]
+            .filter(Boolean)
+            .join(" · ")}
         </b>
         <span className="text-tekst-2"> · Ctrl + klik za još, Esc poništava</span>
       </span>
-      <div className="flex items-center gap-2">
-        <Gumb varijanta="sporedni" malen onClick={() => setOdabir([])}>
+      <div className="flex flex-wrap items-center gap-2">
+        <Gumb
+          varijanta="sporedni"
+          malen
+          onClick={() => {
+            setOdabir([]);
+            setZaBrisanje([]);
+          }}
+        >
           Poništi odabir
         </Gumb>
-        <Gumb malen onClick={() => setNovi(odabir)}>
-          + Dodaj termine
-        </Gumb>
+        {zaBrisanje.length > 0 && (
+          <Gumb varijanta="opasni" malen onClick={obrisiOdabrane} disabled={brise}>
+            {brise ? "Brišem…" : `🗑 Obriši termine (${zaBrisanje.length})`}
+          </Gumb>
+        )}
+        {odabir.length > 0 && (
+          <Gumb malen onClick={() => setNovi(odabir)}>
+            + Dodaj termine
+          </Gumb>
+        )}
       </div>
     </div>
   );
@@ -680,7 +761,8 @@ function TjedniRaspored() {
             {racunalo && (
               <span>
                 Povuci termin mišem: na prazno mjesto = premjesti, na drugi termin = zamijene mjesta (drži Ctrl = stavi ga uz
-                taj termin). Ctrl + klik na prazna polja = više termina odjednom.
+                taj termin). Ctrl + klik na prazna polja = dodaj više termina odjednom, Ctrl + klik na termine = obriši više
+                odjednom.
               </span>
             )}
           </div>
