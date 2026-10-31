@@ -61,9 +61,11 @@ export function KlijentDetalji() {
         id,
         profil,
         aktivnost:
-          red && profil
-            ? aktivnost(red.zadnja_aktivnost ? String(red.zadnja_aktivnost) : null, profil.kreirano)
-            : null,
+          profil?.registriran === false
+            ? { danaBez: 0, nikad: true, upozorenje: false, opis: "Čeka registraciju (nema račun)" }
+            : red && profil
+              ? aktivnost(red.zadnja_aktivnost ? String(red.zadnja_aktivnost) : null, profil.kreirano)
+              : null,
         greskaVeze: Boolean(p.error),
       });
     });
@@ -123,7 +125,9 @@ export function KlijentDetalji() {
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <h1 className="text-2xl font-bold">{ime}</h1>
-            <p className="truncate text-tekst-2">{profil.email}</p>
+            <p className="truncate text-tekst-2">
+              {profil.registriran === false ? "Još nema račun – pošalji mu pozivnicu" : profil.email}
+            </p>
             <p className="text-sm text-tekst-2">Klijent od {formatDatum(profil.kreirano)}</p>
           </div>
           <Link

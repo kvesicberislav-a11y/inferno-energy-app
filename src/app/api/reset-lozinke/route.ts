@@ -56,7 +56,9 @@ export async function POST(request: Request) {
 
   const { data: korisnik, error: greskaKorisnika } = await admin.auth.admin.getUserById(klijentId);
   const email = korisnik?.user?.email;
-  if (greskaKorisnika || !email) return greska("Klijent nije pronađen.", 404);
+  if (greskaKorisnika || !email) {
+    return greska("Klijent se još nije registrirao – prvo mu pošalji pozivnicu.", 404);
+  }
 
   // 3) Jednokratni token za oporavak lozinke (bez slanja e-maila).
   const { data: link, error: greskaLinka } = await admin.auth.admin.generateLink({

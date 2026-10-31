@@ -44,9 +44,10 @@ export async function POST(request: Request) {
   const emailMalim = email.trim().toLowerCase();
 
   // 0) Pozivnica za trenera vrijedi samo za e-mail na koji je poslana – krivi e-mail je ne troši.
+  //    Pozivnica može biti vezana uz klijenta kojeg trener već vodi (profil_id) – račun se spaja s njim.
   const { data: vrsta } = await admin
     .from("pozivnice")
-    .select("trener_email")
+    .select("trener_email, profil_id")
     .eq("kod", kod)
     .is("iskoristena_at", null)
     .gt("vrijedi_do", sada)
@@ -70,8 +71,10 @@ export async function POST(request: Request) {
     return greska("Ova pozivnica ne vrijedi ili je već iskorištena. Javi se treneru za novu.");
   }
 
-  // 2) Napravi korisnika (profil s ulogom "klijent" nastaje automatski u bazi).
+  // 2) Napravi korisnika (profil s ulogom "klijent" nastaje automatski u bazi;
+  //    kod pozivnice vezane uz klijenta račun dobiva njegov id pa svi podaci ostaju).
   const { data: novi, error: greskaKorisnika } = await admin.auth.admin.createUser({
+    ...(vrsta?.profil_id ? { id: vrsta.profil_id } : {}),
     email: emailMalim,
     password: lozinka,
     email_confirm: true,

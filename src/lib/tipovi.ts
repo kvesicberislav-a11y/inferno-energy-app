@@ -11,6 +11,8 @@ export type Profil = {
   nacin?: "uzivo" | "online";
   /** klijent u arhivi (od kada), inače null */
   arhivirano?: string | null;
+  /** false = trener ga već vodi, ali se još nije registrirao preko pozivnice */
+  registriran?: boolean;
 };
 
 export type Pozivnica = {
@@ -20,6 +22,8 @@ export type Pozivnica = {
   kreirano: string;
   vrijedi_do: string;
   iskoristena_at: string | null;
+  /** pozivnica za klijenta kojeg trener već vodi (bez računa) */
+  profil_id?: string | null;
 };
 
 export function pocetnaZa(uloga: Uloga) {

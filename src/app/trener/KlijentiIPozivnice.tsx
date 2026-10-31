@@ -37,6 +37,8 @@ export type PregledKlijenta = {
   /** false = u arhivi */
   aktivan: boolean;
   arhivirano: string | null;
+  /** false = još nema račun (čeka registraciju preko pozivnice) */
+  registriran: boolean;
 };
 
 type Podaci = {
@@ -47,7 +49,7 @@ type Podaci = {
 
 async function dohvatiPodatke(): Promise<Podaci> {
   const sb = supabase();
-  const [k, p] = await Promise.all([
+  const [k, p, bezRacuna] = await Promise.all([
     sb.rpc("pregled_klijenata"),
     sb
       .from("pozivnice")
@@ -55,7 +57,9 @@ async function dohvatiPodatke(): Promise<Podaci> {
       .is("iskoristena_at", null)
       .gt("vrijedi_do", new Date().toISOString())
       .order("kreirano", { ascending: false }),
+    sb.from("profili").select("id").eq("registriran", false),
   ]);
+  const neregistrirani = new Set(((bezRacuna.data as { id: string }[] | null) ?? []).map((r) => r.id));
   if (k.error || p.error) {
     return { klijenti: null, pozivnice: null, greska: prevediGresku((k.error ?? p.error)?.message) };
   }
@@ -75,7 +79,10 @@ async function dohvatiPodatke(): Promise<Podaci> {
       plan: r.plan ? String(r.plan) : null,
       kcalDanas: r.kcal_danas == null ? null : Number(r.kcal_danas),
       kcalCilj: r.kcal_cilj == null ? null : Number(r.kcal_cilj),
-      aktivnost: aktivnost(zadnja, kreirano),
+      aktivnost: neregistrirani.has(String(r.id))
+        ? { danaBez: 0, nikad: true, upozorenje: false, opis: "Čeka registraciju (nema račun)" }
+        : aktivnost(zadnja, kreirano),
+      registriran: !neregistrirani.has(String(r.id)),
       aktivan: r.aktivan !== false,
       arhivirano: r.arhivirano ? String(r.arhivirano) : null,
     };
@@ -426,7 +433,10 @@ function RedPozivnice({
   const link = prikaziLink ? linkPozivnice(pozivnica.kod) : "";
 
   async function ponisti() {
-    if (!window.confirm(`Poništiti pozivnicu za ${pozivnica.ime}?`)) return;
+    const poruka = pozivnica.profil_id
+      ? `Poništiti pozivnicu za ${pozivnica.ime}? Klijent i njegovi podaci ostaju, ali se bez pozivnice ne može registrirati.`
+      : `Poništiti pozivnicu za ${pozivnica.ime}?`;
+    if (!window.confirm(poruka)) return;
     setBrise(true);
     await supabase().from("pozivnice").delete().eq("id", pozivnica.id);
     naPromjenu();
