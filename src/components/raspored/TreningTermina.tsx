@@ -209,6 +209,22 @@ export function TreningTermina({
     };
   }
 
+  /** Klijent nije došao (ili ipak jest). Plan ostaje; trening bez plana se pri poništavanju briše. */
+  async function oznaciNijeDosao(da: boolean) {
+    if (trening) {
+      const prazan = !trening.skupine.length && !trening.vjezbe.length;
+      await izvrsi(
+        !da && prazan
+          ? sb.from("treninzi").delete().eq("id", trening.id)
+          : sb.from("treninzi").update({ nije_dosao: da }).eq("id", trening.id),
+      );
+    } else if (da) {
+      await izvrsi(
+        sb.from("treninzi").insert({ klijent_id: klijentId, datum, naziv: "", skupine: [], iz_kalendara: true, nije_dosao: true }),
+      );
+    }
+  }
+
   async function zavrsi(zavrsen: boolean) {
     if (!trening) return;
     await izvrsi(
@@ -257,9 +273,26 @@ export function TreningTermina({
         {(stanje?.greska || greska) && <Poruka tip="greska">{stanje?.greska ?? greska}</Poruka>}
         {obavijest && <Poruka tip="uspjeh">{obavijest}</Poruka>}
 
+        {trening?.nijeDosao && (
+          <div className="flex flex-col gap-2 rounded-2xl border border-zinc-600 bg-zinc-700/40 p-4">
+            <p className="font-semibold">✗ {ime.split(" ")[0]} nije došao na ovaj trening.</p>
+            <p className="text-sm text-tekst-2">
+              Ne ulazi u statistiku.{imaPlan ? " Plan je spremljen – na sljedećem treningu ga kopiraj s „Kopiraj plan”." : ""}
+            </p>
+            <button
+              type="button"
+              onClick={() => oznaciNijeDosao(false)}
+              disabled={radi}
+              className="self-start text-sm text-tekst-2 underline"
+            >
+              Ipak je došao
+            </button>
+          </div>
+        )}
+
         {stanje?.kljuc !== kljuc ? (
           <Ucitavanje />
-        ) : !imaPlan ? (
+        ) : trening?.nijeDosao && nacin === "trening" ? null : !imaPlan ? (
           <div className="flex flex-col gap-3">
             <p className="text-tekst-2">
               {nacin === "plan" ? "Još nema plana za ovaj trening." : "Nema plana. Prebaci na „Plan” i dodaj vježbe."}
@@ -355,6 +388,12 @@ export function TreningTermina({
               </Gumb>
             )}
           </>
+        )}
+
+        {stanje?.kljuc === kljuc && !trening?.nijeDosao && !trening?.zavrsen && upisanih === 0 && (
+          <Gumb varijanta="sporedni" malen onClick={() => oznaciNijeDosao(true)} disabled={radi}>
+            ✗ Nije došao
+          </Gumb>
         )}
       </div>
 

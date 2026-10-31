@@ -35,7 +35,7 @@ async function dohvati(klijentId: string, od: string, doDana: string, kljuc: str
     sb.rpc("tjedni_volumen", { p_klijent: klijentId, p_od: od, p_do: doDana }),
     sb
       .from("treninzi")
-      .select("datum, zavrsen, iz_kalendara, odradjene_serije(count), trening_vjezbe(count)")
+      .select("datum, zavrsen, iz_kalendara, nije_dosao, odradjene_serije(count), trening_vjezbe(count)")
       .eq("klijent_id", klijentId)
       .gte("datum", od)
       .lte("datum", doDana),
@@ -68,8 +68,11 @@ async function dohvati(klijentId: string, od: string, doDana: string, kljuc: str
       datum: String(r.datum),
       odraden:
         Boolean(r.zavrsen) || Number((r.odradjene_serije as { count: number }[] | null)?.[0]?.count ?? 0) > 0,
+      // izostanak (klijent nije došao) ne ulazi u statistiku
       planiran:
-        Boolean(r.iz_kalendara) && Number((r.trening_vjezbe as { count: number }[] | null)?.[0]?.count ?? 0) > 0,
+        Boolean(r.iz_kalendara) &&
+        !r.nije_dosao &&
+        Number((r.trening_vjezbe as { count: number }[] | null)?.[0]?.count ?? 0) > 0,
     })),
     dodjele: (d.data ?? []).map(uDodjeluZaPridrzavanje),
     greska: greska ? prevediGresku(greska.message) : null,

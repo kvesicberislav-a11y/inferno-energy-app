@@ -84,6 +84,15 @@ export function ponedjeljak(dan: string): string {
   return izUTC(d);
 }
 
+/** Broj tjedna u godini (ISO 8601: tjedan počinje ponedjeljkom, 1. tjedan je onaj s prvim četvrtkom). */
+export function tjedanUGodini(dan: string): { tjedan: number; godina: number } {
+  const d = uUTC(dan);
+  d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7)); // četvrtak tog tjedna
+  const godina = d.getUTCFullYear();
+  const tjedan = Math.ceil(((d.getTime() - Date.UTC(godina, 0, 1)) / 86_400_000 + 1) / 7);
+  return { tjedan, godina };
+}
+
 const fmtDugi = new Intl.DateTimeFormat("hr-HR", {
   timeZone: "UTC",
   weekday: "long",

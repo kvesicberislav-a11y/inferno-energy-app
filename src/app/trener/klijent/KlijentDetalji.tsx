@@ -7,7 +7,7 @@ import { NapredakPrikaz } from "@/components/napredak/NapredakPrikaz";
 import { Prehrana } from "@/components/prehrana/Prehrana";
 import { Poruka, Ucitavanje } from "@/components/ui";
 import { aktivnost, type Aktivnost } from "@/lib/aktivnost";
-import { formatDatum } from "@/lib/datum";
+import { danasZagreb, formatDatum } from "@/lib/datum";
 import type { Profil } from "@/lib/tipovi";
 import { supabase } from "@/lib/supabase/client";
 import { ArhivaKlijenta } from "./ArhivaKlijenta";
@@ -31,7 +31,16 @@ const KARTICE = [
 ] as const;
 type Kartica = (typeof KARTICE)[number][0];
 
-type Ucitano = { id: string; profil: Profil | null; aktivnost: Aktivnost | null; greskaVeze: boolean };
+type Ucitano = {
+  id: string;
+  profil: Profil | null;
+  aktivnost: Aktivnost | null;
+  /** koliko puta nije došao na trening (ovaj mjesec i ukupno) */
+  izostanci: { mjesec: number; ukupno: number };
+  greskaVeze: boolean;
+};
+
+const puta = (n: number) => (n % 10 === 1 && n % 100 !== 11 ? "put" : "puta");
 
 export function KlijentDetalji() {
   const parametri = useSearchParams();
@@ -53,7 +62,8 @@ export function KlijentDetalji() {
       sb.from("profili").select("*").eq("id", id).eq("uloga", "klijent").maybeSingle(),
       // pregled samo ovog klijenta (brže nego računati sve)
       sb.rpc("pregled_klijenata", { p_klijent: id }),
-    ]).then(([p, pregled]) => {
+      sb.from("treninzi").select("datum").eq("klijent_id", id).eq("nije_dosao", true),
+    ]).then(([p, pregled, izostanci]) => {
       if (!aktivno) return;
       const red = ((pregled.data as Record<string, unknown>[] | null) ?? []).find((r) => r.id === id);
       const profil = (p.data as Profil | null) ?? null;
@@ -66,6 +76,10 @@ export function KlijentDetalji() {
             : red && profil
               ? aktivnost(red.zadnja_aktivnost ? String(red.zadnja_aktivnost) : null, profil.kreirano)
               : null,
+        izostanci: {
+          mjesec: (izostanci.data ?? []).filter((r) => String(r.datum).slice(0, 7) === danasZagreb().slice(0, 7)).length,
+          ukupno: (izostanci.data ?? []).length,
+        },
         greskaVeze: Boolean(p.error),
       });
     });
@@ -129,6 +143,12 @@ export function KlijentDetalji() {
               {profil.registriran === false ? "Još nema račun – pošalji mu pozivnicu" : profil.email}
             </p>
             <p className="text-sm text-tekst-2">Klijent od {formatDatum(profil.kreirano)}</p>
+            {ucitano && ucitano.izostanci.ukupno > 0 && (
+              <p className="text-sm text-amber-200">
+                ✗ Nije došao: {ucitano.izostanci.mjesec} {puta(ucitano.izostanci.mjesec)} ovaj mjesec ·{" "}
+                {ucitano.izostanci.ukupno} ukupno
+              </p>
+            )}
           </div>
           <Link
             href={`/trener/poruke?id=${profil.id}`}

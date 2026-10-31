@@ -21,6 +21,8 @@ export type TreningKalendara = {
   naziv: string;
   skupine: string[];
   zavrsen: boolean;
+  /** trener je označio da klijent nije došao (ne ulazi u statistiku) */
+  nijeDosao: boolean;
   vjezbe: TreningVjezba[];
   serije: Serija[];
 };
@@ -38,6 +40,7 @@ export function uTreningKalendara(r: Red): TreningKalendara {
     naziv: String(r.naziv ?? ""),
     skupine: Array.isArray(r.skupine) ? (r.skupine as unknown[]).map(String) : [],
     zavrsen: Boolean(r.zavrsen),
+    nijeDosao: Boolean(r.nije_dosao),
     vjezbe: ((r.vjezbe as Red[] | undefined) ?? [])
       .map((v) => ({
         id: String(v.id),

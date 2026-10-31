@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { KopirajPlanove } from "@/components/raspored/KopirajPlanove";
 import { NoviTermin } from "@/components/raspored/NoviTermin";
 import { TerminRadnje } from "@/components/raspored/TerminRadnje";
@@ -11,14 +11,41 @@ import { useDanas } from "@/components/useDanas";
 import { Zaglavlje } from "@/components/Zaglavlje";
 import { Zasticeno } from "@/components/Zasticeno";
 import { Cip, Gumb, Poruka, Stranica, Ucitavanje } from "@/components/ui";
-import { danMjesec, dodajDane, ponedjeljak } from "@/lib/datum";
+import { danMjesec, dodajDane, ponedjeljak, tjedanUGodini } from "@/lib/datum";
 import { prevediGresku } from "@/lib/greske";
 import { kljucTreninga } from "@/lib/kalendar";
 import type { Termin } from "@/lib/raspored";
 import { supabase } from "@/lib/supabase/client";
 import { MISICNE_SKUPINE } from "@/lib/treninzi";
 
-type Oznake = Record<string, { skupine: string[]; zavrsen: boolean }>;
+type Oznake = Record<string, { skupine: string[]; zavrsen: boolean; nijeDosao: boolean }>;
+
+const RACUNALO = "(min-width: 1024px)";
+
+/** Je li prozor širok kao na računalu (isti prag kao Tailwind lg). */
+function useRacunalo() {
+  return useSyncExternalStore(
+    (javi) => {
+      const m = window.matchMedia(RACUNALO);
+      m.addEventListener("change", javi);
+      return () => m.removeEventListener("change", javi);
+    },
+    () => window.matchMedia(RACUNALO).matches,
+    () => false,
+  );
+}
+
+/** Visina prozora (za puni zaslon: cijeli dan stane bez pomicanja). */
+function useVisinaProzora() {
+  return useSyncExternalStore(
+    (javi) => {
+      window.addEventListener("resize", javi);
+      return () => window.removeEventListener("resize", javi);
+    },
+    () => window.innerHeight,
+    () => 0,
+  );
+}
 
 /** Skupine i stanje treninga iz kalendara za tjedan (za oznake na terminima). */
 function useOznake(od: string, doDana: string, verzija: number) {
@@ -28,7 +55,7 @@ function useOznake(od: string, doDana: string, verzija: number) {
     let aktivno = true;
     supabase()
       .from("treninzi")
-      .select("klijent_id, datum, skupine, zavrsen")
+      .select("klijent_id, datum, skupine, zavrsen, nije_dosao")
       .eq("iz_kalendara", true)
       .gte("datum", od)
       .lte("datum", doDana)
@@ -39,6 +66,7 @@ function useOznake(od: string, doDana: string, verzija: number) {
           oznake[kljucTreninga(String(r.klijent_id), String(r.datum))] = {
             skupine: Array.isArray(r.skupine) ? r.skupine.map(String) : [],
             zavrsen: Boolean(r.zavrsen),
+            nijeDosao: Boolean(r.nije_dosao),
           };
         }
         setStanje({ kljuc, oznake });
@@ -67,6 +95,29 @@ function TjedniRaspored() {
   const [kopiranje, setKopiranje] = useState(false);
   const [brise, setBrise] = useState(false);
   const [greskaBrisanja, setGreskaBrisanja] = useState<string | null>(null);
+  const racunalo = useRacunalo();
+  const visinaProzora = useVisinaProzora();
+  // puni zaslon: samo raspored (bez zaglavlja i izbornika), preko cijelog ekrana
+  const [puni, setPuni] = useState(false);
+
+  useEffect(() => {
+    // Esc ili izlaz iz punog zaslona preglednika vraća običan prikaz
+    const naPromjenu = () => {
+      if (!document.fullscreenElement) setPuni(false);
+    };
+    document.addEventListener("fullscreenchange", naPromjenu);
+    return () => document.removeEventListener("fullscreenchange", naPromjenu);
+  }, []);
+
+  async function ukljuciPuniZaslon() {
+    setPuni(true);
+    await document.documentElement.requestFullscreen?.().catch(() => undefined);
+  }
+
+  async function iskljuciPuniZaslon() {
+    setPuni(false);
+    if (document.fullscreenElement) await document.exitFullscreen().catch(() => undefined);
+  }
 
   /** Obriši sve termine prikazanog tjedna (ili samo odabranog klijenta). Stalni termini nestaju samo ovaj tjedan. */
   async function obrisiTjedan() {
@@ -126,6 +177,7 @@ function TjedniRaspored() {
   const aktivniTermini = raspored?.termini.filter((t) => !t.otkazan) ?? [];
   const brojKlijenata = new Set(aktivniTermini.map((t) => t.klijentId)).size;
   const ovajTjedan = pon === ponedjeljak(danas);
+  const { tjedan, godina } = tjedanUGodini(pon);
 
   // filter: klijent i/ili mišićne skupine (termin je istaknut ako trening ima barem jednu odabranu skupinu)
   const skupineTermina = (t: Termin) => oznake[kljucTreninga(t.klijentId, t.datum)]?.skupine ?? [];
@@ -149,14 +201,32 @@ function TjedniRaspored() {
 
   return (
     <>
+      {!puni && (
+        <div className="w-full lg:mx-auto lg:max-w-md">
+          <Zaglavlje />
+        </div>
+      )}
       <div className="flex items-center justify-between gap-3 pt-1">
         <h1 className="text-2xl font-bold">Raspored</h1>
-        <Gumb malen onClick={() => setNovi({ datum: pon > danas ? pon : danas, vrijeme: "18:00" })}>
-          + Termin
-        </Gumb>
+        <div className="flex items-center gap-2">
+          {puni ? (
+            <Gumb varijanta="sporedni" malen onClick={iskljuciPuniZaslon}>
+              ✕ Izađi iz punog zaslona
+            </Gumb>
+          ) : (
+            <span className="hidden lg:block">
+              <Gumb varijanta="sporedni" malen onClick={ukljuciPuniZaslon}>
+                ⛶ Puni zaslon
+              </Gumb>
+            </span>
+          )}
+          <Gumb malen onClick={() => setNovi({ datum: pon > danas ? pon : danas, vrijeme: "18:00" })}>
+            + Termin
+          </Gumb>
+        </div>
       </div>
 
-      <div className="flex items-center justify-between gap-2">
+      <div className="flex w-full items-center justify-between gap-2 lg:mx-auto lg:max-w-xl">
         <button
           type="button"
           aria-label="Prethodni tjedan"
@@ -165,12 +235,28 @@ function TjedniRaspored() {
         >
           ‹
         </button>
-        <button type="button" onClick={() => setPon(ponedjeljak(danas))} className="flex flex-col items-center">
-          <span className="text-lg font-bold">{ovajTjedan ? "Ovaj tjedan" : "Tjedan"}</span>
+        <div className="flex min-w-0 flex-1 flex-col items-center">
+          <span className="text-lg font-bold">
+            {tjedan}. tjedan {godina}
+          </span>
           <span className="text-sm text-tekst-2">
             {danMjesec(pon)} – {danMjesec(ned)}
-            {!ovajTjedan && " · natrag na danas"}
+            {ovajTjedan && " · ovaj tjedan"}
           </span>
+        </div>
+        <button
+          type="button"
+          aria-label="Natrag na ovaj tjedan"
+          title="Natrag na ovaj tjedan"
+          onClick={() => setPon(ponedjeljak(danas))}
+          className={`flex h-12 w-12 items-center justify-center rounded-2xl border active:scale-95 ${
+            ovajTjedan ? "border-rub bg-povrsina text-tekst-2 opacity-50" : "border-vatra bg-vatra/15 text-vatra"
+          }`}
+        >
+          <svg viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+            <path d="M3 11.5 12 4l9 7.5" strokeLinecap="round" strokeLinejoin="round" />
+            <path d="M5.5 10v9.5h4.5v-5.5h4v5.5h4.5V10" strokeLinejoin="round" />
+          </svg>
         </button>
         <button
           type="button"
@@ -183,7 +269,7 @@ function TjedniRaspored() {
       </div>
 
       {/* filter: klijent + mišićne skupine */}
-      <div className="flex flex-col gap-2">
+      <div className="flex w-full flex-col gap-2 lg:mx-auto lg:max-w-3xl">
         <div className="flex items-center gap-2">
           <select
             aria-label="Klijent"
@@ -252,6 +338,9 @@ function TjedniRaspored() {
             oznake={oznake}
             boje={raspored.boje}
             istaknut={imaFiltar ? istaknut : undefined}
+            siroko={racunalo}
+            // puni zaslon: cijeli dan stane na ekran (ostatak visine zauzimaju gumbi i filter iznad)
+            visinaMreze={puni && visinaProzora ? Math.max(480, visinaProzora - 330) : undefined}
             onTermin={setTrening}
             onPrazno={(datum, vrijeme) => setNovi({ datum, vrijeme })}
           />
@@ -262,6 +351,7 @@ function TjedniRaspored() {
             <span>↻ pomaknut</span>
             <Legenda boja="border border-zinc-600 bg-zinc-700/60">otkazan</Legenda>
             <span>✓ odrađen</span>
+            <span>✗ nije došao</span>
           </div>
           {aktivniTermini.length > 0 && (
             <Gumb varijanta="sporedni" onClick={() => setKopiranje(true)}>
@@ -336,8 +426,7 @@ function Legenda({ boja, children }: { boja: string; children: string }) {
 export default function TrenerRasporedStranica() {
   return (
     <Zasticeno uloga="trener">
-      <Stranica>
-        <Zaglavlje />
+      <Stranica siroka>
         <TjedniRaspored />
       </Stranica>
     </Zasticeno>

@@ -94,7 +94,8 @@ export function TreninziUzivo({ klijentId }: { klijentId: string }) {
             <span className="block text-lg font-bold">{nazivTreninga(t)}</span>
           </span>
           <span className="shrink-0 pt-1 text-sm text-tekst-2">
-            {t.zavrsen ? "✓ odrađen" : upisano ? "u tijeku" : `${t.vjezbe.length} vježbi`} {jeOtvoren ? "▴" : "▾"}
+            {t.zavrsen ? "✓ odrađen" : t.nijeDosao ? "✗ nije održan" : upisano ? "u tijeku" : `${t.vjezbe.length} vježbi`}{" "}
+            {jeOtvoren ? "▴" : "▾"}
           </span>
         </button>
         {jeOtvoren &&

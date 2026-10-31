@@ -118,10 +118,17 @@ export function Ucitavanje({ tekst = "Učitavam…" }: { tekst?: string }) {
   );
 }
 
-/** Uski stupac prilagođen mobitelu, s razmakom od rubova i "notcha". */
-export function Stranica({ children }: { children: ReactNode }) {
+/**
+ * Uski stupac prilagođen mobitelu, s razmakom od rubova i "notcha".
+ * `siroka`: na računalu (lg+) preko cijele širine prozora (npr. Raspored).
+ */
+export function Stranica({ children, siroka = false }: { children: ReactNode; siroka?: boolean }) {
   return (
-    <main className="mx-auto flex w-full max-w-md flex-1 flex-col gap-5 px-4 pt-[max(1.5rem,env(safe-area-inset-top))] pb-[max(2rem,env(safe-area-inset-bottom))]">
+    <main
+      className={`mx-auto flex w-full max-w-md flex-1 flex-col gap-5 px-4 pt-[max(1.5rem,env(safe-area-inset-top))] pb-[max(2rem,env(safe-area-inset-bottom))] ${
+        siroka ? "lg:max-w-none lg:px-8" : ""
+      }`}
+    >
       {children}
     </main>
   );

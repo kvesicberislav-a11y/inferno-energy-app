@@ -96,6 +96,7 @@ export async function dohvatiPodatkeIzvoza(
         .from("treninzi")
         .select("datum, naziv, zavrsen, iz_kalendara, trening_vjezbe(count), odradjene_serije(redni_broj, ponavljanja, kg, vjezba_id, vjezba:vjezbe(naziv))")
         .eq("klijent_id", klijentId)
+        .eq("nije_dosao", false) // izostanak ne ulazi u izvještaj
         .gte("datum", od)
         .lte("datum", doDana)
         .order("datum")
