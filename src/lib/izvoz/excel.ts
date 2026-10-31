@@ -8,6 +8,7 @@ import {
   zadnjeVrijednosti,
   type Mjerenje,
 } from "@/lib/tijelo";
+import { napredakPoVjezbama, nazivMjeseca } from "./napredak";
 import type { PodaciIzvoza } from "./podaci";
 
 type Celija = string | number | Date | null | { value: string | number | Date | null; [k: string]: unknown };
@@ -147,7 +148,32 @@ export async function napraviExcel(p: PodaciIzvoza): Promise<Blob> {
     ),
   ];
 
-  // 6) Povijest ciljeva
+  // 6) Napredak po vježbi: najteža serija na svakom treningu (za filtriranje i grafove u Excelu)
+  const napredak = napredakPoVjezbama(p.treninzi);
+  const napredakRedovi: Redak[] = [
+    naslovi("Vježba", "Datum", "Najteža serija (kg)", "Ponavljanja", "Broj serija", "Volumen (kg)", "Razlika od prvog (kg)"),
+    ...napredak.flatMap((v) =>
+      v.dani.map((d) => [
+        v.vjezba,
+        datum(d.datum),
+        broj(d.kg),
+        d.ponavljanja,
+        d.serija,
+        broj(d.volumen, 0),
+        v.poKg && d.kg > 0 ? broj(d.kg - v.prvi.kg) : null,
+      ]),
+    ),
+  ];
+
+  // 7) Napredak po mjesecima
+  const poMjesecima: Redak[] = [
+    naslovi("Vježba", "Mjesec", "Najteža serija (kg)", "Ponavljanja", "Prosjek najtežih serija (kg)", "Treninga"),
+    ...napredak.flatMap((v) =>
+      v.mjeseci.map((m) => [v.vjezba, nazivMjeseca(m.mjesec), broj(m.najteza.kg), m.najteza.ponavljanja, broj(m.prosjekKg), m.treninga]),
+    ),
+  ];
+
+  // 8) Povijest ciljeva
   const ciljevi: Redak[] = [
     naslovi("Vrijedi od", "kcal", "Proteini (g)", "UH (g)", "Masti (g)"),
     ...[...p.ciljevi]
@@ -171,6 +197,8 @@ export async function napraviExcel(p: PodaciIzvoza): Promise<Blob> {
       list("Obroci", obroci, sir(12, 28, 12, 9, 10, 8)),
       list("Mjerenja", mjerenja, sir(12, 12, 10, 10, 11, 10, 10, 10, 8, 9)),
       list("Treninzi", treninzi, sir(12, 18, 9, 28, 8, 12, 8, 13)),
+      list("Napredak po vježbi", napredakRedovi, sir(48, 12, 12, 11, 10, 12, 14)),
+      list("Napredak po mjesecima", poMjesecima, sir(48, 16, 12, 11, 16, 9)),
       list("Ciljevi", ciljevi, sir(12, 8, 12, 9, 10)),
     ] as never,
     { fontFamily: "Calibri", fontSize: 11 } as never,

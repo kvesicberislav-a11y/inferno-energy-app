@@ -28,33 +28,34 @@ function osY(oznake: number[], y: (v: number) => number, format: (n: number) => 
     .join("");
 }
 
-function osX(tocke: Tocka[], x: (i: number) => number) {
+function osX(tocke: Tocka[], x: (i: number) => number, visina = V) {
   if (!tocke.length) return "";
   const idx = tocke.length <= 2 ? tocke.map((_, i) => i) : [0, Math.floor((tocke.length - 1) / 2), tocke.length - 1];
   return idx
     .map((i, j) => {
       const sidro = idx.length > 1 && j === 0 ? "start" : idx.length > 1 && j === idx.length - 1 ? "end" : "middle";
-      return `<text x="${x(i)}" y="${V - 6}" font-size="8" fill="${TEKST}" text-anchor="${sidro}" font-family="Roboto">${esc(tocke[i].oznaka)}</text>`;
+      return `<text x="${x(i)}" y="${visina - 6}" font-size="8" fill="${TEKST}" text-anchor="${sidro}" font-family="Roboto">${esc(tocke[i].oznaka)}</text>`;
     })
     .join("");
 }
 
 /** Linijski graf (npr. težina) – os ne kreće od nule. */
-export function svgLinija(tocke: Tocka[], format: (n: number) => string): string {
+export function svgLinija(tocke: Tocka[], format: (n: number) => string, visina = V): string {
+  const vis = visina - P.t - P.b;
   const vr = tocke.map((t) => t.v);
   const oznake = lijepeOznake(Math.min(...vr), Math.max(...vr), 4);
   const y0 = oznake[0];
   const y1 = oznake[oznake.length - 1];
   const x = (i: number) => (tocke.length === 1 ? P.l + SIR / 2 : P.l + (i * SIR) / (tocke.length - 1));
-  const y = (v: number) => P.t + (1 - (v - y0) / (y1 - y0 || 1)) * VIS;
+  const y = (v: number) => P.t + (1 - (v - y0) / (y1 - y0 || 1)) * vis;
   const put = tocke.map((t, i) => `${i ? "L" : "M"}${x(i).toFixed(1)},${y(t.v).toFixed(1)}`).join(" ");
   const zadnja = tocke[tocke.length - 1];
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${S}" height="${V}" viewBox="0 0 ${S} ${V}">
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${S}" height="${visina}" viewBox="0 0 ${S} ${visina}">
 ${osY(oznake, y, format)}
-<path d="${put} L${x(tocke.length - 1)},${P.t + VIS} L${x(0)},${P.t + VIS} Z" fill="${NARANCASTA}" fill-opacity="0.1"/>
+<path d="${put} L${x(tocke.length - 1)},${P.t + vis} L${x(0)},${P.t + vis} Z" fill="${NARANCASTA}" fill-opacity="0.1"/>
 <path d="${put}" fill="none" stroke="${NARANCASTA}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
 <circle cx="${x(tocke.length - 1)}" cy="${y(zadnja.v)}" r="3.5" fill="${NARANCASTA}" stroke="#ffffff" stroke-width="1.5"/>
-${osX(tocke, x)}
+${osX(tocke, x, visina)}
 </svg>`;
 }
 
