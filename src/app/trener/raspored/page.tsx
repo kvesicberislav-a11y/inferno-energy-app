@@ -14,6 +14,8 @@ import { Zasticeno } from "@/components/Zasticeno";
 import { Cip, Gumb, Poruka, Stranica, Ucitavanje } from "@/components/ui";
 import { danMjesec, dodajDane, ponedjeljak, tjedanUGodini } from "@/lib/datum";
 import { prevediGresku } from "@/lib/greske";
+import { imeZaDatoteku } from "@/lib/izvoz/podaci";
+import { mozeDijeliti, podijeli, preuzmi } from "@/lib/izvoz/spremi";
 import { kljucTreninga } from "@/lib/kalendar";
 import type { Termin } from "@/lib/raspored";
 import { supabase } from "@/lib/supabase/client";
@@ -95,6 +97,10 @@ function TjedniRaspored() {
   const [skupineFiltar, setSkupineFiltar] = useState<string[]>([]);
   const [kopiranje, setKopiranje] = useState(false);
   const [kopiranjeRasporeda, setKopiranjeRasporeda] = useState(false);
+  // PDF rasporeda (za klijente bez aplikacije): preuzme se, a na mobitelu se može i poslati
+  const [pdf, setPdf] = useState<{ pon: string; blob: Blob; ime: string } | null>(null);
+  const [pdfRadi, setPdfRadi] = useState(false);
+  const [greskaPdf, setGreskaPdf] = useState<string | null>(null);
   const [brise, setBrise] = useState(false);
   const [greskaBrisanja, setGreskaBrisanja] = useState<string | null>(null);
   const racunalo = useRacunalo();
@@ -182,6 +188,40 @@ function TjedniRaspored() {
   const ovajTjedan = pon === ponedjeljak(danas);
   const { tjedan, godina } = tjedanUGodini(pon);
 
+  /** PDF rasporeda prikazanog tjedna – svi klijenti, ili samo odabrani u filtru. */
+  async function izveziPdf() {
+    if (!raspored) return;
+    setGreskaPdf(null);
+    setPdfRadi(true);
+    try {
+      const { napraviPdfRasporeda } = await import("@/lib/izvoz/rasporedPdf");
+      const zaKoga = klijentFiltar ? (raspored.imena[klijentFiltar] ?? "Klijent") : undefined;
+      const blob = await napraviPdfRasporeda({
+        pon,
+        termini: raspored.termini.filter((t) => !klijentFiltar || t.klijentId === klijentFiltar),
+        imena: raspored.imena,
+        boje: raspored.boje,
+        zaKoga,
+      });
+      const ime = `INFERNO_raspored_${godina}_tjedan_${tjedan}${zaKoga ? `_${imeZaDatoteku(zaKoga)}` : ""}.pdf`;
+      preuzmi(blob, ime);
+      setPdf({ pon, blob, ime });
+    } catch (e) {
+      setGreskaPdf(`PDF nije uspio: ${e instanceof Error ? e.message : "nepoznata greška"}`);
+    } finally {
+      setPdfRadi(false);
+    }
+  }
+
+  async function posaljiPdf() {
+    if (!pdf) return;
+    try {
+      await podijeli(pdf.blob, pdf.ime, `Raspored – ${tjedan}. tjedan ${godina}`);
+    } catch {
+      setGreskaPdf("Slanje nije uspjelo. PDF je u mapi Preuzimanja, pošalji ga odande.");
+    }
+  }
+
   // filter: klijent i/ili mišićne skupine (termin je istaknut ako trening ima barem jednu odabranu skupinu)
   const skupineTermina = (t: Termin) => oznake[kljucTreninga(t.klijentId, t.datum)]?.skupine ?? [];
   const odgovaraKlijentu = (t: Termin) => !klijentFiltar || t.klijentId === klijentFiltar;
@@ -223,6 +263,14 @@ function TjedniRaspored() {
               </Gumb>
             </span>
           )}
+          <Gumb
+            varijanta="sporedni"
+            malen
+            onClick={izveziPdf}
+            disabled={pdfRadi || !raspored || !raspored.termini.some((t) => !t.otkazan && (!klijentFiltar || t.klijentId === klijentFiltar))}
+          >
+            {pdfRadi ? "…" : "⤓ PDF"}
+          </Gumb>
           <Gumb malen onClick={() => setNovi({ datum: pon > danas ? pon : danas, vrijeme: "18:00" })}>
             + Termin
           </Gumb>
@@ -323,6 +371,22 @@ function TjedniRaspored() {
       </div>
 
       {obavijest && <Poruka tip="uspjeh">{obavijest}</Poruka>}
+      {greskaPdf && <Poruka tip="greska">{greskaPdf}</Poruka>}
+      {pdf?.pon === pon && (
+        <div className="flex items-center justify-between gap-3 rounded-2xl border border-rub bg-povrsina p-3 text-sm lg:mx-auto lg:w-full lg:max-w-xl">
+          <span>PDF rasporeda je preuzet{mozeDijeliti(pdf.blob, pdf.ime) ? " – možeš ga i poslati." : " (mapa Preuzimanja)."}</span>
+          <div className="flex shrink-0 items-center gap-2">
+            {mozeDijeliti(pdf.blob, pdf.ime) && (
+              <Gumb malen onClick={posaljiPdf}>
+                Pošalji
+              </Gumb>
+            )}
+            <button type="button" aria-label="Zatvori" onClick={() => setPdf(null)} className="px-2 text-tekst-2">
+              ✕
+            </button>
+          </div>
+        </div>
+      )}
 
       {!raspored ? (
         <Ucitavanje />

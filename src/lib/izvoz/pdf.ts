@@ -14,23 +14,13 @@ import {
   type Mjerenje,
 } from "@/lib/tijelo";
 import { napredakPoVjezbama, nazivMjeseca, type DanVjezbe, type NapredakVjezbe } from "./napredak";
+import { ucitajPdfMake } from "./pdfMake";
 import type { PodaciIzvoza } from "./podaci";
 import { svgLinija, svgStupci } from "./svgGrafovi";
 
 const NARANCASTA = "#f97316";
 const SIVA = "#71717a";
 
-type PdfMake = typeof import("pdfmake/build/pdfmake");
-
-async function ucitajPdfMake(): Promise<PdfMake> {
-  const modul = await import("pdfmake/build/pdfmake");
-  const pdfMake = ((modul as unknown as { default?: PdfMake }).default ?? modul) as PdfMake;
-  const fontovi = await import("pdfmake/build/vfs_fonts");
-  pdfMake.addVirtualFileSystem(
-    ((fontovi as unknown as { default?: unknown }).default ?? fontovi) as Parameters<PdfMake["addVirtualFileSystem"]>[0],
-  );
-  return pdfMake;
-}
 
 function naslov(tekst: string): Content {
   return { text: tekst, fontSize: 14, bold: true, color: NARANCASTA, margin: [0, 16, 0, 6] };
