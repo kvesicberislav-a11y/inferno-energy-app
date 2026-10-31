@@ -1,13 +1,14 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Gumb, Poruka } from "@/components/ui";
 import { ocistiPlanoveBezTermina } from "@/components/raspored/useRaspored";
 import { danasZagreb, formatDatum } from "@/lib/datum";
 import { prevediGresku } from "@/lib/greske";
 import { supabase } from "@/lib/supabase/client";
 
-/** Arhiviraj klijenta koji je prestao trenirati (ili ga vrati iz arhive). */
+/** Arhiviraj klijenta koji je prestao trenirati (ili ga vrati iz arhive), ili ga trajno obriši. */
 export function ArhivaKlijenta({
   klijentId,
   ime,
@@ -20,8 +21,43 @@ export function ArhivaKlijenta({
   arhivirano: string | null;
   onPromjena: (arhivirano: string | null) => void;
 }) {
+  const router = useRouter();
   const [radi, setRadi] = useState(false);
   const [greska, setGreska] = useState<string | null>(null);
+
+  async function obrisiTrajno() {
+    if (
+      !window.confirm(
+        `Jesi siguran? Trajno obrisati klijenta ${ime}?
+
+` +
+          "Briše se sve: treninzi, prehrana, mjerenja, slike, poruke, termini i račun. Ovo se ne može poništiti.",
+      )
+    ) {
+      return;
+    }
+    setGreska(null);
+    setRadi(true);
+    const sb = supabase();
+    const { data, error } = await sb.rpc("obrisi_klijenta", { p_klijent: klijentId });
+    if (error) {
+      setRadi(false);
+      return setGreska(prevediGresku(error.message));
+    }
+    // slike napretka iz spremišta (podaci su već obrisani, pa greška ovdje ne smeta)
+    const slike = (data as string[] | null) ?? [];
+    if (slike.length) await sb.storage.from("napredak").remove(slike).catch(() => undefined);
+    router.replace("/trener");
+  }
+
+  const brisanje = (
+    <>
+      <Gumb varijanta="opasni" malen onClick={obrisiTrajno} disabled={radi}>
+        Obriši trajno
+      </Gumb>
+      <p className="text-center text-xs text-tekst-2">Briše klijenta i sve njegove podatke. Ne može se poništiti.</p>
+    </>
+  );
 
   async function promijeni(arhiviraj: boolean) {
     if (
@@ -57,6 +93,7 @@ export function ArhivaKlijenta({
         <Gumb malen onClick={() => promijeni(false)} disabled={radi}>
           {radi ? "…" : "Vrati iz arhive"}
         </Gumb>
+        {brisanje}
       </div>
     );
   }
@@ -68,6 +105,7 @@ export function ArhivaKlijenta({
         {radi ? "…" : "Arhiviraj klijenta"}
       </Gumb>
       <p className="text-center text-xs text-tekst-2">Za klijente koji su prestali trenirati. Možeš ga vratiti kad god.</p>
+      <div className="mt-3 flex flex-col gap-2">{brisanje}</div>
     </div>
   );
 }
