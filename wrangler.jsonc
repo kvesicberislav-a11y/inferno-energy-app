@@ -28,6 +28,16 @@
   "triggers": {
     "crons": ["15 2 * * *"]
   },
+  // workers.dev adresa ostaje uključena (stara adresa preusmjerava na infernoenergy.hr),
+  // a preview_urls daje testnu adresu: test-inferno-energy-app.kvesic-berislav.workers.dev
+  // (npm run test-verzija – učita probnu verziju bez objave klijentima).
+  "workers_dev": true,
+  "preview_urls": true,
+  // Prava adresa aplikacije (DNS zona infernoenergy.hr je u Cloudflareu). www preusmjerava na glavnu (worker.mjs).
+  "routes": [
+    { "pattern": "infernoenergy.hr", "custom_domain": true },
+    { "pattern": "www.infernoenergy.hr", "custom_domain": true }
+  ],
   // Ne briši varijable upisane u nadzornoj ploči pri svakoj objavi.
   "keep_vars": true,
   "observability": {
