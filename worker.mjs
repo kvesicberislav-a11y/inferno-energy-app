@@ -18,7 +18,9 @@ function jednako(a, b) {
 // Prava adresa aplikacije. Stara workers.dev adresa i www preusmjeravaju ovamo
 // (testna adresa test-inferno-energy-app….workers.dev se NE preusmjerava).
 const GLAVNA_ADRESA = "infernoenergy.hr";
-const PREUSMJERI = new Set(["inferno-energy-app.kvesic-berislav.workers.dev", "www.infernoenergy.hr"]);
+// PRIVREMENO bez stare workers.dev adrese: Kuhadini DNS zapisi (TTL 24 h) kod nekih operatera još vode
+// infernoenergy.hr na stari server. Vratiti "inferno-energy-app.kvesic-berislav.workers.dev" u popis nakon 4. 11. 2026.
+const PREUSMJERI = new Set(["www.infernoenergy.hr"]);
 
 const worker = {
   async fetch(request, env, ctx) {
