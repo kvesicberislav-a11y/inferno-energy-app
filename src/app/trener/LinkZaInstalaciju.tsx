@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { LinkZaSlanje } from "@/components/LinkZaSlanje";
 import { Gumb, Kartica } from "@/components/ui";
+import { adresaZaKlijente } from "@/lib/adresa";
 
 /** Trener šalje bilo kome link s uputama za dodavanje aplikacije na početni zaslon. */
 export function LinkZaInstalaciju() {
@@ -16,7 +17,7 @@ export function LinkZaInstalaciju() {
     );
   }
 
-  const link = `${window.location.origin}/instaliraj`;
+  const link = `${adresaZaKlijente()}/instaliraj`;
   return (
     <Kartica className="flex flex-col gap-3">
       <p className="text-lg font-semibold">Upute za početni zaslon</p>

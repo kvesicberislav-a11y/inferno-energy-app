@@ -15,9 +15,25 @@ function jednako(a, b) {
   return razlika === 0;
 }
 
+// Prava adresa aplikacije. Stara workers.dev adresa i www preusmjeravaju ovamo
+// (testna adresa test-inferno-energy-app….workers.dev se NE preusmjerava).
+const GLAVNA_ADRESA = "infernoenergy.hr";
+const PREUSMJERI = new Set(["inferno-energy-app.kvesic-berislav.workers.dev", "www.infernoenergy.hr"]);
+
 const worker = {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
+    // samo otvaranje stranica (GET/HEAD); slanje podataka sa stare adrese i dalje radi
+    if (
+      PREUSMJERI.has(url.hostname) &&
+      (request.method === "GET" || request.method === "HEAD") &&
+      url.pathname !== "/__odrzavanje"
+    ) {
+      url.protocol = "https:";
+      url.hostname = GLAVNA_ADRESA;
+      url.port = "";
+      return Response.redirect(url.toString(), 301);
+    }
     if (url.pathname === "/__odrzavanje") {
       const dobiveni = (request.headers.get("authorization") || "").replace(/^Bearer\s+/i, "");
       if (request.method !== "POST" || !env.ODRZAVANJE_KLJUC || !jednako(dobiveni, env.ODRZAVANJE_KLJUC)) {

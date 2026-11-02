@@ -12,9 +12,10 @@ import { formatKcal } from "@/lib/makroi";
 import { supabase } from "@/lib/supabase/client";
 import { format1 } from "@/lib/tijelo";
 import type { Pozivnica } from "@/lib/tipovi";
+import { adresaZaKlijente } from "@/lib/adresa";
 
 function linkPozivnice(kod: string) {
-  return `${window.location.origin}/pozivnica?kod=${kod}`;
+  return `${adresaZaKlijente()}/pozivnica?kod=${kod}`;
 }
 
 function porukaPozivnice(ime: string, link: string) {

@@ -10,7 +10,7 @@ import { posaljiPush, posiljatelj, type Uredjaj } from "../lib/push";
 
 /** Javne adrese (nisu tajne). Ako Cloudflare ima varijablu, ona ima prednost. */
 const URL_BAZE = "https://ifqoqzcsdwnkezvfuobv.supabase.co";
-const ADRESA_APLIKACIJE = "https://inferno-energy-app.kvesic-berislav.workers.dev";
+const ADRESA_APLIKACIJE = "https://infernoenergy.hr";
 
 /** Tablice za kopiju (push_pretplate namjerno ne – uređaji se sami ponovno prijave). */
 /** Tablice bez stupca id – stalni redoslijed za kopiju u dijelovima. */

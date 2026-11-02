@@ -27,7 +27,7 @@ Ručno pokretanje i izvještaj:
 
 ```powershell
 $k = (Get-Content "$env:USERPROFILE\.inferno-energy\odrzavanje-kljuc.txt").Trim()
-Invoke-RestMethod -Method Post -Uri "https://inferno-energy-app.kvesic-berislav.workers.dev/__odrzavanje?kopija=1" -Headers @{ Authorization = "Bearer $k" } -UserAgent "inferno-rucno"
+Invoke-RestMethod -Method Post -Uri "https://infernoenergy.hr/__odrzavanje?kopija=1" -Headers @{ Authorization = "Bearer $k" } -UserAgent "inferno-rucno"
 ```
 
 Parametri: `kopija=0` znači bez kopije, `obavijest=1` znači pošalji upozorenje ako nešto ne valja.
@@ -78,6 +78,24 @@ npx supabase@2.122.0 db query --linked --project-ref ifqoqzcsdwnkezvfuobv -f sup
   - `rls_enabled_no_policy` na `push_pretplate`.
   - `auth_otp_long_expiry`: link za novu lozinku namjerno vrijedi 24 h.
   - `auth_leaked_password_protection` je samo na plaćenom planu.
+
+## Adrese
+
+- **Prava aplikacija:** https://infernoenergy.hr (Cloudflare Workers custom domain; DNS zona je u Cloudflareu, domena je registrirana preko CARNET-a do 2. 11. 2027.).
+- `www.infernoenergy.hr` i stara `inferno-energy-app.kvesic-berislav.workers.dev` preusmjeravaju (301, samo GET/HEAD) na pravu adresu – `worker.mjs`.
+- **Testna verzija:** https://test-inferno-energy-app.kvesic-berislav.workers.dev – radi na PRAVIM podacima.
+- Linkovi za klijente (pozivnica, nova lozinka, instalacija) uvijek vode na pravu adresu (`src/lib/adresa.ts`).
+- E-mail domene ostaje kod Kuhade (MX `mail.infernoenergy.hr` → 144.76.64.184, DNS only).
+
+## Postupak: prvo test, pa objava
+
+1. Promjenu učitaj na testnu adresu (NE objavljuje se klijentima):
+   ```powershell
+   npm run test-verzija   # build + wrangler versions upload --preview-alias test
+   ```
+2. Vlasnik isproba na testnoj adresi.
+3. Tek na njegov „objavi”: commit + push na `main` → Workers Builds objavljuje na pravu adresu.
+4. Promjene baze (SQL) vrijede odmah za obje verzije – moraju biti kompatibilne sa starim kodom.
 
 ## Objava
 

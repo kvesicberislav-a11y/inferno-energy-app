@@ -5,6 +5,7 @@ import { LinkZaSlanje } from "@/components/LinkZaSlanje";
 import { Gumb, Poruka } from "@/components/ui";
 import { prevediGresku } from "@/lib/greske";
 import { supabase } from "@/lib/supabase/client";
+import { adresaZaKlijente } from "@/lib/adresa";
 
 /** Trener pravi jednokratni link za novu lozinku i šalje ga klijentu (npr. WhatsAppom). */
 export function NovaLozinka({ klijentId, ime }: { klijentId: string; ime: string }) {
@@ -31,7 +32,7 @@ export function NovaLozinka({ klijentId, ime }: { klijentId: string; ime: string
         setGreska(rezultat.greska ?? "Ne mogu napraviti link. Pokušaj ponovno.");
         return;
       }
-      setLink(`${window.location.origin}/nova-lozinka?token=${rezultat.token}`);
+      setLink(`${adresaZaKlijente()}/nova-lozinka?token=${rezultat.token}`);
     } catch (err) {
       setGreska(prevediGresku(err instanceof Error ? err.message : null));
     } finally {

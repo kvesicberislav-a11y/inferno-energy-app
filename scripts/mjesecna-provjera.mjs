@@ -13,7 +13,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-const ADRESA = "https://inferno-energy-app.kvesic-berislav.workers.dev";
+const ADRESA = "https://infernoenergy.hr";
 const KV_ID = "10a195615806466080fa9b0effcc07c6";
 const SUPABASE = ["--yes", "supabase@2.122.0"];
 const PROJEKT = ["--linked", "--project-ref", "ifqoqzcsdwnkezvfuobv"];
