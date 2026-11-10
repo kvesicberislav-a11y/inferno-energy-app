@@ -291,11 +291,79 @@ export function youtubeId(url: string | null | undefined): string | null {
   return m ? m[1] : null;
 }
 
+/** Plan jedne serije (trening iz kalendara može imati različita ponavljanja i kilažu po seriji). */
+export type SerijaPlana = { ponavljanja: string; kg: number | null };
+
+/** serije_plan iz baze → popis serija (null = sve serije iste). */
+export function uSerijePlana(v: unknown): SerijaPlana[] | null {
+  if (!Array.isArray(v) || v.length === 0) return null;
+  return v.map((s) => {
+    const r = (s ?? {}) as Record<string, unknown>;
+    const kg = r.kg === null || r.kg === undefined || r.kg === "" ? null : Number(r.kg);
+    return { ponavljanja: String(r.ponavljanja ?? ""), kg: kg !== null && Number.isFinite(kg) ? kg : null };
+  });
+}
+
+/** Plan svake serije redom (iz serije_plan ili, ako ga nema, serije × ponavljanja × kg). */
+export function serijePlana(pv: {
+  serije: number;
+  ponavljanja: string;
+  kg: number | null;
+  serije_plan?: SerijaPlana[] | null;
+}): SerijaPlana[] {
+  if (pv.serije_plan?.length) return pv.serije_plan;
+  return Array.from({ length: Math.max(1, pv.serije) }, () => ({ ponavljanja: pv.ponavljanja, kg: pv.kg }));
+}
+
+const crtica = (t: string) => t.replace(/\s*-\s*/g, "–");
+
 /** "4 × 8–10 · 60 kg" */
-export function opisCilja(pv: Pick<PlanVjezba, "serije" | "ponavljanja" | "kg">) {
-  const ponavljanja = pv.ponavljanja.replace(/\s*-\s*/g, "–");
-  const kg = pv.kg !== null && pv.kg > 0 ? ` · ${formatG(pv.kg)} kg` : "";
-  return `${pv.serije} × ${ponavljanja}${kg}`;
+function opisJednakih(serije: number, ponavljanja: string, kg: number | null) {
+  return `${serije} × ${crtica(ponavljanja)}${kg !== null && kg > 0 ? ` · ${formatG(kg)} kg` : ""}`;
+}
+
+/** Serije po seriji: "12×40, 10×45, 8×50 kg"; ako su sve iste, kratko "3 × 10 · 50 kg". */
+export function opisSerija(s: SerijaPlana[]) {
+  if (s.every((x) => x.ponavljanja === s[0].ponavljanja && x.kg === s[0].kg)) {
+    return opisJednakih(s.length, s[0].ponavljanja, s[0].kg);
+  }
+  if (s.some((x) => x.kg !== null && x.kg > 0)) {
+    return `${s.map((x) => (x.kg !== null && x.kg > 0 ? `${crtica(x.ponavljanja)}×${formatG(x.kg)}` : crtica(x.ponavljanja))).join(", ")} kg`;
+  }
+  return `${s.length} ser.: ${s.map((x) => crtica(x.ponavljanja)).join(", ")}`;
+}
+
+/** "4 × 8–10 · 60 kg", a s različitim serijama "12×40, 10×45, 8×50 kg" */
+export function opisCilja(pv: Pick<PlanVjezba, "serije" | "ponavljanja" | "kg"> & { serije_plan?: SerijaPlana[] | null }) {
+  if (pv.serije_plan?.length) return opisSerija(pv.serije_plan);
+  return opisJednakih(pv.serije, pv.ponavljanja, pv.kg);
+}
+
+/**
+ * Serije po seriji → zapis vježbe u treningu: broj serija, ponavljanja prve serije, najveća kilaža
+ * i serije_plan (null ako su sve serije iste – tada vrijedi serije × ponavljanja × kg).
+ */
+export function sazmiSerije(plan: SerijaPlana[]) {
+  const sveIste = plan.every((s) => s.ponavljanja === plan[0].ponavljanja && s.kg === plan[0].kg);
+  const kilaze = plan.map((s) => s.kg).filter((x): x is number => x !== null);
+  return {
+    serije: plan.length,
+    ponavljanja: plan[0].ponavljanja,
+    kg: sveIste ? plan[0].kg : kilaze.length ? Math.max(...kilaze) : null,
+    serije_plan: sveIste ? null : plan,
+  };
+}
+
+/** Bazna vježba klijenta: njegove serije (ponavljanja × kg po seriji) i stalna napomena (npr. "sjedalo lvl3"). */
+export type PodaciBazne = { serije_plan: SerijaPlana[] | null; napomena: string };
+
+export function uPodatkeBazne(r: Record<string, unknown>): PodaciBazne {
+  return { serije_plan: uSerijePlana(r.serije_plan), napomena: String(r.napomena ?? "") };
+}
+
+/** "bazno 12×40, 10×45, 8×50 kg" (ili null ako trener nije upisao serije) */
+export function kratkoPolazno(b: PodaciBazne | null | undefined) {
+  return b?.serije_plan?.length ? `bazno ${opisSerija(b.serije_plan)}` : null;
 }
 
 /** Prvi broj iz "8-10" -> 8 (za predložak unosa). */

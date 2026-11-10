@@ -3,7 +3,8 @@
 import { useEffect, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { kratkoMax, useBazneIKilaze } from "@/components/trening/useBazneIKilaze";
+import { StalnaNapomena } from "@/components/trening/StalnaNapomena";
+import { kratkoMaxIliPolazno, useBazneIKilaze } from "@/components/trening/useBazneIKilaze";
 import { useDanas } from "@/components/useDanas";
 import { Gumb, Kartica, Polje, Poruka, Ucitavanje } from "@/components/ui";
 import { danMjesec, ponedjeljak } from "@/lib/datum";
@@ -15,6 +16,7 @@ import {
   SELECT_PLANA,
   pocetakZaTjedan,
   poSkupinama,
+  sazmiSerije,
   tjedanCiklusa,
   uPlan,
   type Plan,
@@ -71,7 +73,7 @@ export function UredivacPlana() {
   }, [id, ispravan, verzija]);
 
   const klijentId = ucitano?.id === id ? (ucitano.klijent?.id ?? null) : null;
-  const { bazne, kilaze, osvjezi: osvjeziBazne } = useBazneIKilaze(klijentId);
+  const { bazne, podaci, kilaze, osvjezi: osvjeziBazne } = useBazneIKilaze(klijentId);
 
   const osvjezi = () => setVerzija((v) => v + 1);
 
@@ -180,15 +182,19 @@ export function UredivacPlana() {
 
   async function dodajVjezbe(dan: PlanDan, vjezbe: Vjezba[]) {
     const pocetak = dan.vjezbe.reduce((m, v) => Math.max(m, v.redoslijed), -1) + 1;
-    const redovi = vjezbe.map((v, i) => ({
-      plan_dan_id: dan.id,
-      vjezba_id: v.id,
-      redoslijed: pocetak + i,
-      serije: 3,
-      ponavljanja: "10",
-      // trener kreće od najveće kilaže klijenta pa je spusti ili digne
-      kg: kilaze.get(v.id)?.maxKg ?? null,
-    }));
+    const redovi = vjezbe.map((v, i) => {
+      // trener kreće od serija upisanih na baznoj vježbi (ili najveće kilaže klijenta) pa ih promijeni
+      const b = podaci.get(v.id);
+      const z = b?.serije_plan?.length ? sazmiSerije(b.serije_plan) : null;
+      return {
+        plan_dan_id: dan.id,
+        vjezba_id: v.id,
+        redoslijed: pocetak + i,
+        serije: z?.serije ?? 3,
+        ponavljanja: z?.ponavljanja ?? "10",
+        kg: z ? z.kg : (kilaze.get(v.id)?.maxKg ?? null),
+      };
+    });
     const g = await izvrsi(sb.from("plan_vjezbe").insert(redovi));
     if (g) return g;
     const noveBazne = vjezbe.filter((v) => !bazne.has(v.id));
@@ -416,8 +422,13 @@ export function UredivacPlana() {
                           {pv.serije} × {pv.ponavljanja.replace(/\s*-\s*/g, "–")}
                           {pv.napomena ? ` · ${pv.napomena}` : ""}
                         </p>
-                        {kratkoMax(kilaze.get(pv.vjezba_id)) && (
-                          <p className="truncate text-xs text-tekst-2">{kratkoMax(kilaze.get(pv.vjezba_id))}</p>
+                        {podaci.get(pv.vjezba_id)?.napomena && (
+                          <p className="truncate text-xs text-amber-200">📌 {podaci.get(pv.vjezba_id)?.napomena}</p>
+                        )}
+                        {kratkoMaxIliPolazno(kilaze.get(pv.vjezba_id), podaci.get(pv.vjezba_id)) && (
+                          <p className="truncate text-xs text-tekst-2">
+                            {kratkoMaxIliPolazno(kilaze.get(pv.vjezba_id), podaci.get(pv.vjezba_id))}
+                          </p>
                         )}
                       </button>
                       <KgKoraci
@@ -463,6 +474,7 @@ export function UredivacPlana() {
           klijentId={klijentId}
           bazne={bazne}
           kilaze={kilaze}
+          polazno={podaci}
           vecUDanu={dodavanjeZa.dan.vjezbe.map((v) => v.vjezba_id)}
           onDodaj={(v) => dodajVjezbe(dodavanjeZa.dan, v)}
           onZatvori={() => setDodavanjeZa(null)}
@@ -474,6 +486,19 @@ export function UredivacPlana() {
           vjezba={forma.pv.vjezba}
           pocetno={forma.pv}
           kilaza={kilaze.get(forma.pv.vjezba_id) ?? null}
+          polazno={podaci.get(forma.pv.vjezba_id) ?? null}
+          stalnaNapomena={
+            klijentId && ucitano?.klijent ? (
+              <StalnaNapomena
+                key={forma.pv.vjezba_id}
+                klijentId={klijentId}
+                vjezbaId={forma.pv.vjezba_id}
+                tekst={podaci.get(forma.pv.vjezba_id)?.napomena ?? ""}
+                ime={ucitano.klijent.ime}
+                onPromjena={osvjeziBazne}
+              />
+            ) : null
+          }
           onZatvori={() => setForma(null)}
           onSpremi={(p) => spremiVjezbu(forma.pv, p)}
           onUkloni={() => ukloniVjezbu(forma.pv)}

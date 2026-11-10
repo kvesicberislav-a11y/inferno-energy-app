@@ -1,6 +1,6 @@
 // Treninzi iz kalendara (klijenti uživo): trener za termin (klijent + datum) slaže
 // mišićne skupine i vježbe, a na treningu upisuje odrađene serije.
-import { prviBroj, uSeriju, uVjezbu, type Serija, type Vjezba } from "@/lib/treninzi";
+import { prviBroj, uSeriju, uSerijePlana, uVjezbu, type Serija, type SerijaPlana, type Vjezba } from "@/lib/treninzi";
 
 export type TreningVjezba = {
   id: string;
@@ -10,6 +10,8 @@ export type TreningVjezba = {
   serije: number;
   ponavljanja: string;
   kg: number | null;
+  /** ponavljanja i kilaža za svaku seriju posebno (null = sve serije iste) */
+  serije_plan: SerijaPlana[] | null;
   napomena: string;
   vjezba: Vjezba | null;
 };
@@ -50,6 +52,7 @@ export function uTreningKalendara(r: Red): TreningKalendara {
         serije: Number(v.serije ?? 3),
         ponavljanja: String(v.ponavljanja ?? ""),
         kg: v.kg === null || v.kg === undefined ? null : Number(v.kg),
+        serije_plan: uSerijePlana(v.serije_plan),
         napomena: String(v.napomena ?? ""),
         vjezba: v.vjezba ? uVjezbu(v.vjezba as Red) : null,
       }))

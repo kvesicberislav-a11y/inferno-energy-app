@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import { Ploca } from "@/components/Ploca";
 import { useRaspored } from "@/components/raspored/useRaspored";
+import { PrikazStalneNapomene } from "@/components/trening/StalnaNapomena";
+import { useStalneNapomene } from "@/components/trening/useBazneIKilaze";
 import { useDanas } from "@/components/useDanas";
 import { Kartica, Poruka, Ucitavanje } from "@/components/ui";
 import { VideoVjezbe } from "@/components/vjezbe/VideoVjezbe";
@@ -33,6 +35,8 @@ export function TreninziUzivo({ klijentId }: { klijentId: string }) {
   const [vjezba, setVjezba] = useState<{ t: TreningKalendara; tv: TreningVjezba } | null>(null);
   // plan vrijedi samo za dan na koji klijent stvarno ima termin (ne otkazan)
   const { raspored } = useRaspored(klijentId, od, doDana);
+  // stalne napomene trenera uz vježbe (npr. "sjedalo lvl3")
+  const napomene = useStalneNapomene(klijentId);
 
   useEffect(() => {
     let aktivno = true;
@@ -114,6 +118,7 @@ export function TreninziUzivo({ klijentId }: { klijentId: string }) {
                     >
                       <span className="leading-snug font-semibold">{tv.vjezba?.naziv ?? "Vježba"}</span>
                       <span className="text-sm text-tekst-2 tabular-nums">{opisCilja(tv)}</span>
+                      <PrikazStalneNapomene tekst={napomene.get(tv.vjezba_id)} sitno />
                       {upisane.length > 0 && (
                         <span className="text-sm text-emerald-300 tabular-nums">
                           ✓ {upisane.map((s) => `${s.ponavljanja}×${formatG(s.kg)}`).join(", ")}
@@ -152,6 +157,7 @@ export function TreninziUzivo({ klijentId }: { klijentId: string }) {
               <p className="text-xl font-bold tabular-nums">{opisCilja(vjezba.tv)}</p>
               {vjezba.tv.napomena && <p className="mt-1 text-sm text-amber-200">{vjezba.tv.napomena}</p>}
             </div>
+            <PrikazStalneNapomene tekst={napomene.get(vjezba.tv.vjezba_id)} />
             {serijeVjezbe(vjezba.t, vjezba.tv.vjezba_id).length > 0 && (
               <div className="flex flex-col gap-1">
                 <p className="text-sm font-semibold">Odrađeno</p>

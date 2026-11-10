@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { Ploca } from "@/components/Ploca";
+import { PrikazStalneNapomene } from "@/components/trening/StalnaNapomena";
+import { useStalneNapomene } from "@/components/trening/useBazneIKilaze";
 import { Gumb, Poruka } from "@/components/ui";
 import { OdabirVjezbe } from "@/components/vjezbe/OdabirVjezbe";
 import { VideoVjezbe } from "@/components/vjezbe/VideoVjezbe";
@@ -87,6 +89,7 @@ export function VjezbaUnos({
   const [biranjeZamjene, setBiranjeZamjene] = useState(false);
   const [novaVlastita, setNovaVlastita] = useState(false);
   const [mijenja, setMijenja] = useState(false);
+  const napomene = useStalneNapomene(klijentId);
 
   // Što je klijent odradio prošli put na ovoj vježbi (za usporedbu i predložak).
   useEffect(() => {
@@ -274,6 +277,8 @@ export function VjezbaUnos({
             </p>
           )}
         </div>
+
+        <PrikazStalneNapomene tekst={napomene.get(vjezbaId)} />
 
         {vjezba?.opis && <p className="whitespace-pre-line text-base text-tekst-2">{vjezba.opis}</p>}
 

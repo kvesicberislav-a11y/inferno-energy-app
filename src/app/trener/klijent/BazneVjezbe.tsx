@@ -1,23 +1,25 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type FormEvent } from "react";
 import { Ploca } from "@/components/Ploca";
-import { Cip, Kartica, Poruka, Ucitavanje } from "@/components/ui";
-import { kratkoMax, useBazneIKilaze } from "@/components/trening/useBazneIKilaze";
+import { Cip, Gumb, Kartica, Polje, Poruka, Ucitavanje } from "@/components/ui";
+import { SerijeUnos, planIzRedova, redoviIzPlana, type RedSerije } from "@/components/trening/SerijeUnos";
+import { kratkoMaxIliPolazno, kratkoNajvise, najvecaKg, useBazneIKilaze } from "@/components/trening/useBazneIKilaze";
 import { filtrirajVjezbe, useVjezbe } from "@/components/vjezbe/useVjezbe";
 import { prevediGresku } from "@/lib/greske";
 import { supabase } from "@/lib/supabase/client";
-import { MISICNE_SKUPINE, type Kilaza, type Vjezba } from "@/lib/treninzi";
+import { MISICNE_SKUPINE, opisSerija, type Kilaza, type PodaciBazne, type Vjezba } from "@/lib/treninzi";
 
 /** Trener: bazne vježbe klijenta – od njih se slaže njegov program. */
 export function BazneVjezbe({ klijentId, ime }: { klijentId: string; ime: string }) {
-  const { ucitano, bazne, kilaze, greska, osvjezi } = useBazneIKilaze(klijentId);
+  const { ucitano, bazne, podaci, kilaze, greska, osvjezi } = useBazneIKilaze(klijentId);
   const { vjezbe } = useVjezbe({ vrsta: "sve" });
   const [uredivanje, setUredivanje] = useState(false);
+  const [otvorena, setOtvorena] = useState<Vjezba | null>(null);
 
   const njegove = (vjezbe ?? []).filter((v) => bazne.has(v.id));
-  const poSkupini = MISICNE_SKUPINE.map((s) => ({ s, n: njegove.filter((v) => v.misicna_skupina === s).length })).filter(
-    (x) => x.n > 0,
+  const poSkupini = MISICNE_SKUPINE.map((s) => ({ s, vjezbe: njegove.filter((v) => v.misicna_skupina === s) })).filter(
+    (x) => x.vjezbe.length > 0,
   );
 
   return (
@@ -26,7 +28,9 @@ export function BazneVjezbe({ klijentId, ime }: { klijentId: string; ime: string
         <div className="flex items-center justify-between gap-3">
           <div>
             <h3 className="text-lg font-semibold">Bazne vježbe</h3>
-            <p className="text-sm text-tekst-2">Vježbe koje {ime.split(" ")[0]} preferira. Od njih slažeš program.</p>
+            <p className="text-sm text-tekst-2">
+              Vježbe koje {ime.split(" ")[0]} preferira. Dodirni vježbu i upiši serije (ponavljanja × kg) i stalnu napomenu.
+            </p>
           </div>
           <button
             type="button"
@@ -43,11 +47,39 @@ export function BazneVjezbe({ klijentId, ime }: { klijentId: string; ime: string
         ) : njegove.length === 0 ? (
           <p className="text-sm text-tekst-2">Još nema baznih vježbi.</p>
         ) : (
-          <div className="flex flex-wrap gap-1.5">
-            {poSkupini.map(({ s, n }) => (
-              <span key={s} className="rounded-lg bg-povrsina-2 px-2 py-1 text-sm">
-                {s} <span className="text-tekst-2">{n}</span>
-              </span>
+          <div className="flex flex-col gap-3">
+            {poSkupini.map(({ s, vjezbe: uSkupini }) => (
+              <section key={s} className="flex flex-col gap-1.5">
+                <p className="text-xs font-bold tracking-wide text-tekst-2 uppercase">
+                  {s} · {uSkupini.length}
+                </p>
+                {uSkupini.map((v) => {
+                  const p = podaci.get(v.id);
+                  const max = kratkoNajvise(kilaze.get(v.id), p);
+                  return (
+                    <button
+                      key={v.id}
+                      type="button"
+                      onClick={() => setOtvorena(v)}
+                      className="flex w-full items-center gap-3 rounded-2xl border border-rub bg-povrsina-2 p-3 text-left active:scale-[0.99]"
+                    >
+                      <span className="min-w-0 flex-1">
+                        <span className="line-clamp-2 block leading-snug font-semibold">{v.naziv}</span>
+                        {p?.serije_plan ? (
+                          <span className="block text-sm text-tekst-2 tabular-nums">{opisSerija(p.serije_plan)}</span>
+                        ) : (
+                          <span className="block text-sm text-zinc-500">upiši serije</span>
+                        )}
+                        {max && <span className="block truncate text-xs text-tekst-2">{max}</span>}
+                        {p?.napomena && <span className="block truncate text-xs text-amber-200">📌 {p.napomena}</span>}
+                      </span>
+                      <span className="shrink-0 text-xl text-tekst-2" aria-hidden="true">
+                        ›
+                      </span>
+                    </button>
+                  );
+                })}
+              </section>
             ))}
           </div>
         )}
@@ -58,12 +90,104 @@ export function BazneVjezbe({ klijentId, ime }: { klijentId: string; ime: string
           klijentId={klijentId}
           vjezbe={vjezbe}
           bazne={bazne}
+          podaci={podaci}
           kilaze={kilaze}
           onPromjena={osvjezi}
           onZatvori={() => setUredivanje(false)}
         />
       )}
+
+      {otvorena && (
+        <BaznaVjezbaForma
+          key={otvorena.id}
+          klijentId={klijentId}
+          ime={ime}
+          vjezba={otvorena}
+          pocetno={podaci.get(otvorena.id) ?? null}
+          kilaza={kilaze.get(otvorena.id) ?? null}
+          onSpremljeno={() => {
+            setOtvorena(null);
+            osvjezi();
+          }}
+          onZatvori={() => setOtvorena(null)}
+        />
+      )}
     </>
+  );
+}
+
+/** Bazne serije (ponavljanja × kg za svaku seriju) i stalna napomena klijenta za jednu vježbu. */
+function BaznaVjezbaForma({
+  klijentId,
+  ime,
+  vjezba,
+  pocetno,
+  kilaza,
+  onSpremljeno,
+  onZatvori,
+}: {
+  klijentId: string;
+  ime: string;
+  vjezba: Vjezba;
+  pocetno: PodaciBazne | null;
+  kilaza: Kilaza | null;
+  onSpremljeno: () => void;
+  onZatvori: () => void;
+}) {
+  const [redovi, setRedovi] = useState<RedSerije[]>(() => redoviIzPlana(pocetno?.serije_plan, 3));
+  const [napomena, setNapomena] = useState(pocetno?.napomena ?? "");
+  const [greska, setGreska] = useState<string | null>(null);
+  const [salje, setSalje] = useState(false);
+  const max = kratkoNajvise(kilaza, pocetno);
+
+  async function spremi(e: FormEvent) {
+    e.preventDefault();
+    setGreska(null);
+    const r = planIzRedova(redovi);
+    if ("greska" in r) return setGreska(r.greska);
+    setSalje(true);
+    const { error } = await supabase()
+      .from("bazne_vjezbe")
+      // ručni upis: bazne više ne ovise o treningu iz kojeg su se zadnji put osvježile
+      .update({
+        serije_plan: r.plan.length ? r.plan : null,
+        napomena: napomena.trim().slice(0, 300),
+        izvor_trening: null,
+        serije_prije: null,
+      })
+      .eq("klijent_id", klijentId)
+      .eq("vjezba_id", vjezba.id);
+    setSalje(false);
+    if (error) return setGreska(prevediGresku(error.message));
+    onSpremljeno();
+  }
+
+  return (
+    <Ploca naslov={vjezba.naziv} onZatvori={onZatvori}>
+      <form onSubmit={spremi} className="flex flex-col gap-5">
+        {max && (
+          <div className="rounded-2xl bg-povrsina-2 px-4 py-3 text-sm text-tekst-2">Max: {max.replace(/^max /, "")}</div>
+        )}
+        <SerijeUnos redovi={redovi} onPromjena={setRedovi} maxKg={najvecaKg(kilaza, pocetno)} />
+        <p className="-mt-3 text-xs text-tekst-2">
+          Ove serije se nude kad mu slažeš trening u kalendaru. Kad na treningu digne više kila, ovdje se same osvježe.
+          Prazne redove preskačem.
+        </p>
+        <Polje
+          id="bazna-napomena"
+          oznaka="📌 Stalna napomena (neobavezno)"
+          placeholder="npr. sjedalo lvl3, gurat se o spužvu"
+          maxLength={300}
+          value={napomena}
+          onChange={(e) => setNapomena(e.target.value)}
+        />
+        <p className="-mt-3 text-xs text-tekst-2">Pojavljuje se uz ovu vježbu na svakom treningu. Vidi je i {ime.split(" ")[0]}.</p>
+        {greska && <Poruka tip="greska">{greska}</Poruka>}
+        <Gumb type="submit" disabled={salje}>
+          {salje ? "Spremam…" : "Spremi"}
+        </Gumb>
+      </form>
+    </Ploca>
   );
 }
 
@@ -71,6 +195,7 @@ function UrediBazne({
   klijentId,
   vjezbe,
   bazne,
+  podaci,
   kilaze,
   onPromjena,
   onZatvori,
@@ -78,6 +203,7 @@ function UrediBazne({
   klijentId: string;
   vjezbe: Vjezba[] | null;
   bazne: Set<string>;
+  podaci: Map<string, PodaciBazne>;
   kilaze: Map<string, Kilaza>;
   onPromjena: () => void;
   onZatvori: () => void;
@@ -94,6 +220,15 @@ function UrediBazne({
 
   async function promijeni(v: Vjezba) {
     const bila = odabrane.has(v.id);
+    const p = podaci.get(v.id);
+    if (
+      bila &&
+      p &&
+      (p.serije_plan || p.napomena) &&
+      !window.confirm(`Maknuti „${v.naziv}” iz baznih vježbi? Obrisat će se i upisane serije i stalna napomena.`)
+    ) {
+      return;
+    }
     setOdabrane((o) => {
       const n = new Set(o);
       if (bila) n.delete(v.id);
@@ -155,7 +290,7 @@ function UrediBazne({
           <div className="flex flex-col gap-2">
             {prikazane.map((v) => {
               const da = odabrane.has(v.id);
-              const max = kratkoMax(kilaze.get(v.id));
+              const max = kratkoMaxIliPolazno(kilaze.get(v.id), podaci.get(v.id));
               return (
                 <button
                   key={v.id}

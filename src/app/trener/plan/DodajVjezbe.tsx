@@ -3,9 +3,9 @@
 import { useState } from "react";
 import { Ploca } from "@/components/Ploca";
 import { Gumb, Poruka, Ucitavanje } from "@/components/ui";
-import { kratkoMax } from "@/components/trening/useBazneIKilaze";
+import { kratkoMaxIliPolazno } from "@/components/trening/useBazneIKilaze";
 import { filtrirajVjezbe, useVjezbe } from "@/components/vjezbe/useVjezbe";
-import type { Kilaza, Vjezba } from "@/lib/treninzi";
+import type { Kilaza, PodaciBazne, Vjezba } from "@/lib/treninzi";
 
 /**
  * Dodavanje vježbi u trening za jednu mišićnu skupinu.
@@ -16,6 +16,7 @@ export function DodajVjezbe({
   klijentId,
   bazne,
   kilaze,
+  polazno,
   vecUDanu,
   onDodaj,
   onZatvori,
@@ -24,6 +25,8 @@ export function DodajVjezbe({
   klijentId: string | null;
   bazne: Set<string>;
   kilaze: Map<string, Kilaza>;
+  /** polazna kilaža iz baznih vježbi (dok nema odrađenih serija) */
+  polazno?: Map<string, PodaciBazne>;
   vecUDanu: string[];
   onDodaj: (vjezbe: Vjezba[]) => Promise<string | null>;
   onZatvori: () => void;
@@ -59,7 +62,7 @@ export function DodajVjezbe({
   const red = (v: Vjezba) => {
     const redni = odabrane.findIndex((x) => x.id === v.id);
     const vec = vecUDanu.includes(v.id);
-    const max = kratkoMax(kilaze.get(v.id));
+    const max = kratkoMaxIliPolazno(kilaze.get(v.id), polazno?.get(v.id));
     return (
       <button
         key={v.id}

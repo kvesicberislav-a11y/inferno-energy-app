@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { PrikazStalneNapomene } from "@/components/trening/StalnaNapomena";
+import { useStalneNapomene } from "@/components/trening/useBazneIKilaze";
 import { Gumb, Kartica, Poruka, Ucitavanje } from "@/components/ui";
 import { SlicicaVjezbe } from "@/components/vjezbe/VideoVjezbe";
 import { danMjesec, danasZagreb, dodajDane, opisDana, ponedjeljak } from "@/lib/datum";
@@ -31,6 +33,7 @@ export function DanasnjiTrening({ klijentId }: { klijentId: string }) {
   const [otvorena, setOtvorena] = useState<PlanVjezba | null>(null);
   const [zavrsava, setZavrsava] = useState(false);
   const [greskaRadnje, setGreskaRadnje] = useState<string | null>(null);
+  const napomene = useStalneNapomene(klijentId);
 
   const mojeVjezbeLink = (
     <Link href="/klijent/vjezbe" className="shrink-0 text-sm font-semibold text-vatra">
@@ -221,6 +224,7 @@ export function DanasnjiTrening({ klijentId }: { klijentId: string }) {
           </p>
           <p className="truncate text-sm text-tekst-2 tabular-nums">{opisCilja(zamjena ? { ...pv, kg: null } : pv)}</p>
           {zamjena && <p className="truncate text-xs text-amber-200">umjesto: {pv.vjezba?.naziv ?? "vježba iz plana"}</p>}
+          <PrikazStalneNapomene tekst={napomene.get(zamjena?.id ?? pv.vjezba_id)} sitno />
         </div>
         <span
           className={`shrink-0 rounded-xl px-2.5 py-1 text-sm font-semibold tabular-nums ${

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { Ploca } from "@/components/Ploca";
 import { Gumb, Poruka } from "@/components/ui";
 import { opisKilaze } from "@/components/trening/useBazneIKilaze";
@@ -8,16 +8,19 @@ import { predlozakPonavljanja, type TreningVjezba } from "@/lib/kalendar";
 import { prevediGresku } from "@/lib/greske";
 import { formatG, parsirajBroj } from "@/lib/makroi";
 import { supabase } from "@/lib/supabase/client";
-import { opisCilja, uSeriju, type Kilaza, type Serija } from "@/lib/treninzi";
+import { opisCilja, serijePlana, uSeriju, type Kilaza, type PodaciBazne, type Serija } from "@/lib/treninzi";
 
 type Red = { redni: number; ponavljanja: string; kg: string; spremljeno: Serija | null };
 
 function pocetniRedovi(tv: TreningVjezba, spremljene: Serija[]): Red[] {
-  const broj = Math.max(tv.serije, spremljene.reduce((m, s) => Math.max(m, s.redni_broj), 0));
-  const pon = predlozakPonavljanja(tv.ponavljanja);
-  const kg = tv.kg !== null && tv.kg > 0 ? formatG(tv.kg) : "";
+  // plan svake serije (različita ponavljanja i kilaža po seriji, ili sve iste)
+  const plan = serijePlana(tv);
+  const broj = Math.max(plan.length, spremljene.reduce((m, s) => Math.max(m, s.redni_broj), 0));
   return Array.from({ length: broj }, (_, i) => {
     const s = spremljene.find((x) => x.redni_broj === i + 1) ?? null;
+    const p = plan[Math.min(i, plan.length - 1)];
+    const pon = predlozakPonavljanja(p.ponavljanja);
+    const kg = p.kg !== null && p.kg > 0 ? formatG(p.kg) : "";
     return { redni: i + 1, ponavljanja: s ? String(s.ponavljanja) : pon, kg: s ? formatG(s.kg) : kg, spremljeno: s };
   });
 }
@@ -32,6 +35,8 @@ export function UpisSerija({
   tv,
   spremljene,
   kilaza,
+  polazno = null,
+  stalnaNapomena = null,
   onPromjena,
   onZatvori,
 }: {
@@ -40,6 +45,10 @@ export function UpisSerija({
   tv: TreningVjezba;
   spremljene: Serija[];
   kilaza: Kilaza | null;
+  /** polazna kilaža iz baznih vježbi (dok nema odrađenih serija) */
+  polazno?: PodaciBazne | null;
+  /** stalna napomena klijenta za ovu vježbu (npr. "sjedalo lvl3") */
+  stalnaNapomena?: ReactNode;
   onPromjena: () => void;
   onZatvori: () => void;
 }) {
@@ -132,8 +141,9 @@ export function UpisSerija({
           <p className="text-sm text-tekst-2">Plan</p>
           <p className="text-xl font-bold tabular-nums">{opisCilja(tv)}</p>
           {tv.napomena && <p className="mt-1 text-sm text-amber-200">{tv.napomena}</p>}
-          <p className="mt-2 text-sm text-tekst-2">{opisKilaze(kilaza)}</p>
+          <p className="mt-2 text-sm text-tekst-2">{opisKilaze(kilaza, polazno)}</p>
         </div>
+        {stalnaNapomena}
 
         <div className="flex flex-col gap-2">
           <div className="flex items-baseline justify-between">

@@ -5,7 +5,8 @@ import { DodajVjezbe } from "@/app/trener/plan/DodajVjezbe";
 import { PlanVjezbaForma, type PodaciPlanVjezbe } from "@/app/trener/plan/PlanVjezbaForma";
 import { SkupineForma } from "@/app/trener/plan/SkupineForma";
 import { Ploca } from "@/components/Ploca";
-import { kratkoMax, useBazneIKilaze } from "@/components/trening/useBazneIKilaze";
+import { StalnaNapomena } from "@/components/trening/StalnaNapomena";
+import { kratkoMaxIliPolazno, useBazneIKilaze } from "@/components/trening/useBazneIKilaze";
 import { Gumb, Poruka, Ucitavanje } from "@/components/ui";
 import { danMjesec, danasZagreb } from "@/lib/datum";
 import { prevediGresku } from "@/lib/greske";
@@ -20,7 +21,7 @@ import {
 import { formatG } from "@/lib/makroi";
 import { opisTermina, type Termin } from "@/lib/raspored";
 import { supabase } from "@/lib/supabase/client";
-import { opisCilja, poSkupinama, type Vjezba } from "@/lib/treninzi";
+import { opisCilja, poSkupinama, sazmiSerije, type Vjezba } from "@/lib/treninzi";
 import { KopirajTrening } from "./KopirajTrening";
 import { UpisSerija } from "./UpisSerija";
 
@@ -51,7 +52,7 @@ export function TreningTermina({
   const kljuc = `${klijentId}|${datum}`;
   const [stanje, setStanje] = useState<Stanje | null>(null);
   const [verzija, setVerzija] = useState(0);
-  const { bazne, kilaze, osvjezi: osvjeziKilaze } = useBazneIKilaze(klijentId);
+  const { bazne, podaci, kilaze, osvjezi: osvjeziKilaze } = useBazneIKilaze(klijentId);
   const [nacin, setNacin] = useState<"plan" | "trening">(datum === danasZagreb() ? "trening" : "plan");
   const [skupineOtvorene, setSkupineOtvorene] = useState(false);
   const [dodavanje, setDodavanje] = useState<string | null>(null);
@@ -142,8 +143,12 @@ export function TreningTermina({
       const id = await osigurajTrening(trening?.skupine ?? (dodavanje ? [dodavanje] : []));
       const pocetak = (trening?.vjezbe ?? []).reduce((m, v) => Math.max(m, v.redoslijed), -1) + 1;
       const redovi = vjezbe.map((v, i) => {
-        // prijedlog = njegov najbolji rezultat (trener ga ostavi ili promijeni)
+        // prijedlog = serije upisane na njegovoj baznoj vježbi, a ako ih nema njegov najbolji rezultat
         const k = kilaze.get(v.id);
+        const b = podaci.get(v.id);
+        if (b?.serije_plan?.length) {
+          return { trening_id: id, vjezba_id: v.id, redoslijed: pocetak + i, ...sazmiSerije(b.serije_plan) };
+        }
         return {
           trening_id: id,
           vjezba_id: v.id,
@@ -316,7 +321,8 @@ export function TreningTermina({
                 {vjezbe.map((tv) => {
                   const upisane = serijeVjezbe(trening!, tv.vjezba_id);
                   const gotovo = upisane.length >= tv.serije;
-                  const max = kratkoMax(kilaze.get(tv.vjezba_id));
+                  const max = kratkoMaxIliPolazno(kilaze.get(tv.vjezba_id), podaci.get(tv.vjezba_id));
+                  const stalna = podaci.get(tv.vjezba_id)?.napomena;
                   return (
                     <button
                       key={tv.id}
@@ -329,6 +335,7 @@ export function TreningTermina({
                       <span className="min-w-0 flex-1">
                         <span className="line-clamp-2 block leading-snug font-semibold">{tv.vjezba?.naziv ?? "Vježba"}</span>
                         <span className="block text-sm text-tekst-2 tabular-nums">{opisCilja(tv)}</span>
+                        {stalna && <span className="block truncate text-xs text-amber-200">📌 {stalna}</span>}
                         {nacin === "plan"
                           ? max && <span className="block truncate text-xs text-tekst-2">{max}</span>
                           : upisane.length > 0 && (
@@ -411,6 +418,7 @@ export function TreningTermina({
           klijentId={klijentId}
           bazne={bazne}
           kilaze={kilaze}
+          polazno={podaci}
           vecUDanu={trening?.vjezbe.map((v) => v.vjezba_id) ?? []}
           onDodaj={dodajVjezbe}
           onZatvori={() => setDodavanje(null)}
@@ -422,6 +430,17 @@ export function TreningTermina({
           vjezba={forma.vjezba}
           pocetno={forma}
           kilaza={kilaze.get(forma.vjezba_id) ?? null}
+          polazno={podaci.get(forma.vjezba_id) ?? null}
+          stalnaNapomena={
+            <StalnaNapomena
+              key={forma.vjezba_id}
+              klijentId={klijentId}
+              vjezbaId={forma.vjezba_id}
+              tekst={podaci.get(forma.vjezba_id)?.napomena ?? ""}
+              ime={ime}
+              onPromjena={osvjeziKilaze}
+            />
+          }
           onZatvori={() => setForma(null)}
           onSpremi={(p) => spremiVjezbu(forma, p)}
           onUkloni={() => ukloniVjezbu(forma)}
@@ -448,6 +467,17 @@ export function TreningTermina({
           tv={upis}
           spremljene={serijeVjezbe(trening, upis.vjezba_id)}
           kilaza={kilaze.get(upis.vjezba_id) ?? null}
+          polazno={podaci.get(upis.vjezba_id) ?? null}
+          stalnaNapomena={
+            <StalnaNapomena
+              key={upis.vjezba_id}
+              klijentId={klijentId}
+              vjezbaId={upis.vjezba_id}
+              tekst={podaci.get(upis.vjezba_id)?.napomena ?? ""}
+              ime={ime}
+              onPromjena={osvjeziKilaze}
+            />
+          }
           onPromjena={osvjezi}
           onZatvori={() => {
             setUpis(null);
