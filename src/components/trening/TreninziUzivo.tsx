@@ -18,9 +18,8 @@ import {
   type TreningKalendara,
   type TreningVjezba,
 } from "@/lib/kalendar";
-import { formatG } from "@/lib/makroi";
 import { supabase } from "@/lib/supabase/client";
-import { opisCilja, poSkupinama } from "@/lib/treninzi";
+import { opisCilja, opisOdradjene, opisOdradjenih, poSkupinama } from "@/lib/treninzi";
 
 type Stanje = { kljuc: string; treninzi: TreningKalendara[]; greska: string | null };
 
@@ -121,7 +120,7 @@ export function TreninziUzivo({ klijentId }: { klijentId: string }) {
                       <PrikazStalneNapomene tekst={napomene.get(tv.vjezba_id)} sitno />
                       {upisane.length > 0 && (
                         <span className="text-sm text-emerald-300 tabular-nums">
-                          ✓ {upisane.map((s) => `${s.ponavljanja}×${formatG(s.kg)}`).join(", ")}
+                          ✓ {opisOdradjenih(upisane, false)}
                         </span>
                       )}
                     </button>
@@ -163,7 +162,7 @@ export function TreninziUzivo({ klijentId }: { klijentId: string }) {
                 <p className="text-sm font-semibold">Odrađeno</p>
                 {serijeVjezbe(vjezba.t, vjezba.tv.vjezba_id).map((s) => (
                   <p key={s.id} className="text-tekst-2 tabular-nums">
-                    {s.redni_broj}. serija: {s.ponavljanja} × {formatG(s.kg)} kg
+                    {s.redni_broj}. serija: {opisOdradjene(s)}
                   </p>
                 ))}
               </div>

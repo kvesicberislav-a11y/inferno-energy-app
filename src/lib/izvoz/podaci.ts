@@ -6,7 +6,17 @@ import { supabase } from "@/lib/supabase/client";
 import { uMjerenje, uOsobnePodatke, type Mjerenje, type OsobniPodaci } from "@/lib/tijelo";
 import { jePlaniranTrening, uDodjeluZaPridrzavanje } from "@/lib/treninzi";
 
-export type SerijaIzvoza = { vjezba: string; vjezbaId: string; redni: number; ponavljanja: number; kg: number };
+export type SerijaIzvoza = {
+  vjezba: string;
+  vjezbaId: string;
+  redni: number;
+  /** ponavljanja, a ako je `sekunde` – sekunde */
+  ponavljanja: number;
+  kg: number;
+  sekunde: boolean;
+  /** opterećenje riječju (npr. "žuta guma") */
+  rijec: string | null;
+};
 export type TreningIzvoza = { datum: string; naziv: string; zavrsen: boolean; serije: SerijaIzvoza[] };
 export type DanPrehrane = {
   datum: string;
@@ -94,7 +104,7 @@ export async function dohvatiPodatkeIzvoza(
     sveStranice<Red>((a, b) =>
       sb
         .from("treninzi")
-        .select("datum, naziv, zavrsen, iz_kalendara, trening_vjezbe(count), odradjene_serije(redni_broj, ponavljanja, kg, vjezba_id, vjezba:vjezbe(naziv))")
+        .select("datum, naziv, zavrsen, iz_kalendara, trening_vjezbe(count), odradjene_serije(redni_broj, ponavljanja, kg, sekunde, rijec, vjezba_id, vjezba:vjezbe(naziv))")
         .eq("klijent_id", klijentId)
         .eq("nije_dosao", false) // izostanak ne ulazi u izvještaj
         .gte("datum", od)
@@ -140,6 +150,8 @@ export async function dohvatiPodatkeIzvoza(
           redni: Number(s.redni_broj),
           ponavljanja: Number(s.ponavljanja),
           kg: Number(s.kg),
+          sekunde: s.sekunde === true,
+          rijec: s.rijec ? String(s.rijec) : null,
         };
       })
       .sort((a, b) => a.vjezba.localeCompare(b.vjezba, "hr") || a.redni - b.redni),

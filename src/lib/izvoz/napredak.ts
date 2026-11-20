@@ -1,7 +1,24 @@
 // Napredak po vježbi za izvještaj: najteža serija na svakom treningu i sažetak po mjesecima.
+import { formatG } from "@/lib/makroi";
+import { volumenSerije } from "@/lib/treninzi";
 import type { TreningIzvoza } from "./podaci";
 
-export type DanVjezbe = { datum: string; kg: number; ponavljanja: number; serija: number; volumen: number };
+export type DanVjezbe = {
+  datum: string;
+  kg: number;
+  ponavljanja: number;
+  serija: number;
+  volumen: number;
+  /** najteža serija je bila u sekundama / s opterećenjem riječju */
+  sekunde: boolean;
+  rijec: string | null;
+};
+
+/** Najteža serija: "60 kg × 8", "5 kg × 60 s", "12 pon.", "60 s", "10 pon. · žuta guma" */
+export function opisNajteze(poKg: boolean, d: Pick<DanVjezbe, "kg" | "ponavljanja" | "sekunde" | "rijec">) {
+  if (poKg) return `${formatG(d.kg)} kg × ${d.ponavljanja}${d.sekunde ? " s" : ""}`;
+  return `${d.ponavljanja}${d.sekunde ? " s" : " pon."}${d.rijec ? ` · ${d.rijec}` : ""}`;
+}
 export type MjesecVjezbe = { mjesec: string; najteza: DanVjezbe; prosjekKg: number | null; treninga: number };
 export type NapredakVjezbe = {
   vjezba: string;
@@ -33,7 +50,15 @@ export function napredakPoVjezbama(treninzi: TreningIzvoza[], samo: string[] | n
       if (odabrane && !odabrane.has(s.vjezbaId)) continue;
       const dani = po.get(s.vjezba) ?? new Map<string, DanVjezbe>();
       const d = dani.get(t.datum);
-      const ova = { datum: t.datum, kg: s.kg, ponavljanja: s.ponavljanja, serija: 1, volumen: s.kg * s.ponavljanja };
+      const ova: DanVjezbe = {
+        datum: t.datum,
+        kg: s.kg,
+        ponavljanja: s.ponavljanja,
+        serija: 1,
+        volumen: volumenSerije(s),
+        sekunde: s.sekunde,
+        rijec: s.rijec,
+      };
       dani.set(
         t.datum,
         d ? { ...bolji(d, ova), datum: t.datum, serija: d.serija + 1, volumen: d.volumen + ova.volumen } : ova,

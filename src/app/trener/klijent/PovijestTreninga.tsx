@@ -4,10 +4,18 @@ import { useEffect, useState } from "react";
 import { Kartica, Poruka } from "@/components/ui";
 import { danasZagreb, opisDana } from "@/lib/datum";
 import { prevediGresku } from "@/lib/greske";
-import { formatG } from "@/lib/makroi";
 import { supabase } from "@/lib/supabase/client";
+import { opisOdradjenih, volumenSerije } from "@/lib/treninzi";
 
-type SerijaS = { redni: number; ponavljanja: number; kg: number; vjezba: string; vjezbaId: string };
+type SerijaS = {
+  redni: number;
+  ponavljanja: number;
+  kg: number;
+  sekunde: boolean;
+  rijec: string | null;
+  vjezba: string;
+  vjezbaId: string;
+};
 type TreningS = { id: string; datum: string; naziv: string; zavrsen: boolean; serije: SerijaS[] };
 type Podaci = { klijentId: string; treninzi: TreningS[]; greska: string | null };
 
@@ -16,7 +24,7 @@ const KORAK = 10;
 async function dohvati(klijentId: string, broj: number): Promise<Podaci> {
   const { data, error } = await supabase()
     .from("treninzi")
-    .select("id, datum, naziv, zavrsen, iz_kalendara, odradjene_serije(redni_broj, ponavljanja, kg, vjezba_id, vjezba:vjezbe(naziv))")
+    .select("id, datum, naziv, zavrsen, iz_kalendara, odradjene_serije(redni_broj, ponavljanja, kg, sekunde, rijec, vjezba_id, vjezba:vjezbe(naziv))")
     .eq("klijent_id", klijentId)
     // samo odrađeni: ne budući ni samo isplanirani treninzi iz kalendara
     .lte("datum", danasZagreb())
@@ -39,6 +47,8 @@ async function dohvati(klijentId: string, broj: number): Promise<Podaci> {
           redni: Number(s.redni_broj),
           ponavljanja: Number(s.ponavljanja),
           kg: Number(s.kg),
+          sekunde: s.sekunde === true,
+          rijec: s.rijec ? String(s.rijec) : null,
           vjezbaId: String(s.vjezba_id),
           vjezba: String((v as { naziv?: string } | null)?.naziv ?? "Vježba"),
         };
@@ -76,7 +86,7 @@ export function PovijestTreninga({ klijentId }: { klijentId: string }) {
       ) : (
         <>
           {treninzi.map((t) => {
-            const volumen = t.serije.reduce((s, x) => s + x.kg * x.ponavljanja, 0);
+            const volumen = t.serije.reduce((s, x) => s + volumenSerije(x), 0);
             const poVjezbi = new Map<string, SerijaS[]>();
             for (const s of [...t.serije].sort((a, b) => a.redni - b.redni)) {
               poVjezbi.set(s.vjezbaId, [...(poVjezbi.get(s.vjezbaId) ?? []), s]);
@@ -114,7 +124,7 @@ export function PovijestTreninga({ klijentId }: { klijentId: string }) {
                         <p key={serije[0].vjezbaId}>
                           <span className="font-semibold">{serije[0].vjezba}:</span>{" "}
                           <span className="tabular-nums text-tekst-2">
-                            {serije.map((s) => `${s.ponavljanja}×${formatG(s.kg)}`).join(", ")} kg
+                            {opisOdradjenih(serije)}
                           </span>
                         </p>
                       ))

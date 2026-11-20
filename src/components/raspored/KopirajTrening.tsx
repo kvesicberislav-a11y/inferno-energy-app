@@ -7,6 +7,7 @@ import { opisDana } from "@/lib/datum";
 import { prevediGresku } from "@/lib/greske";
 import { nazivTreninga } from "@/lib/kalendar";
 import { supabase } from "@/lib/supabase/client";
+import { uSkupinu } from "@/lib/treninzi";
 
 type Izvor = { datum: string; naziv: string; vjezbi: number; zavrsen: boolean };
 
@@ -47,7 +48,7 @@ export function KopirajTrening({
             .map((r) => ({
               datum: String(r.datum),
               naziv: nazivTreninga({
-                skupine: Array.isArray(r.skupine) ? r.skupine.map(String) : [],
+                skupine: Array.isArray(r.skupine) ? r.skupine.map(uSkupinu) : [],
                 naziv: String(r.naziv ?? ""),
               }),
               vjezbi: Number((r.trening_vjezbe as { count: number }[] | null)?.[0]?.count ?? 0),

@@ -13,7 +13,8 @@ import {
   zadnjeVrijednosti,
   type Mjerenje,
 } from "@/lib/tijelo";
-import { napredakPoVjezbama, nazivMjeseca, type DanVjezbe, type NapredakVjezbe } from "./napredak";
+import { volumenSerije } from "@/lib/treninzi";
+import { napredakPoVjezbama, nazivMjeseca, opisNajteze, type DanVjezbe, type NapredakVjezbe } from "./napredak";
 import { ucitajPdfMake } from "./pdfMake";
 import type { PodaciIzvoza } from "./podaci";
 import { svgLinija, svgStupci } from "./svgGrafovi";
@@ -156,7 +157,7 @@ export async function napraviPdf(p: PodaciIzvoza): Promise<Blob> {
     ? Math.min(100, Math.round((pr.odradenihTreninga / pr.planiranihTreninga) * 100))
     : null;
   const sveSerije = p.treninzi.flatMap((t) => t.serije.map((s) => ({ ...s, datum: t.datum })));
-  const ukupniVolumen = sveSerije.reduce((s, x) => s + x.kg * x.ponavljanja, 0);
+  const ukupniVolumen = sveSerije.reduce((s, x) => s + volumenSerije(x), 0);
 
   const tjedniVolumen: { oznaka: string; v: number }[] = [];
   // samo puni tjedni od prvog ponedjeljka u razdoblju (djelomični prvi tjedan izgledao bi kao pad)
@@ -164,7 +165,7 @@ export async function napraviPdf(p: PodaciIzvoza): Promise<Blob> {
   for (let t = prviPon; t <= p.doDana; t = dodajDane(t, 7)) {
     const v = sveSerije
       .filter((s) => s.datum >= t && s.datum <= dodajDane(t, 6))
-      .reduce((a, s) => a + s.kg * s.ponavljanja, 0);
+      .reduce((a, s) => a + volumenSerije(s), 0);
     tjedniVolumen.push({ oznaka: danMjesec(t), v });
   }
 
@@ -175,13 +176,12 @@ export async function napraviPdf(p: PodaciIzvoza): Promise<Blob> {
     .slice(0, 12)
     .map(([vjezba, serije]) => {
       const max = serije.reduce((m, s) => (s.kg > m.kg || (s.kg === m.kg && s.ponavljanja > m.ponavljanja) ? s : m));
-      return [vjezba, max.kg > 0 ? `${formatG(max.kg)} kg × ${max.ponavljanja}` : `${max.ponavljanja} pon.`, puniDatum(max.datum), String(serije.length)];
+      return [vjezba, opisNajteze(max.kg > 0, max), puniDatum(max.datum), String(serije.length)];
     });
 
   // ---------- Napredak po vježbi (svaka vježba: graf najteže serije + sažetak po mjesecima) ----------
   const napredak = napredakPoVjezbama(p.treninzi, p.praceneVjezbe);
-  const serijaTekst = (v: NapredakVjezbe, d: DanVjezbe) =>
-    v.poKg ? `${formatG(d.kg)} kg × ${d.ponavljanja}` : `${d.ponavljanja} pon.`;
+  const serijaTekst = (v: NapredakVjezbe, d: DanVjezbe) => opisNajteze(v.poKg, d);
   const napredakSadrzaj: Content[] = napredak.length
     ? [
         { ...(naslov("Napredak po vježbi") as object), pageBreak: "before" } as Content,
@@ -211,7 +211,12 @@ export async function napraviPdf(p: PodaciIzvoza): Promise<Blob> {
                   { text: serijaTekst(v, v.najbolji), bold: true, color: NARANCASTA },
                   ` (${danMjesec(v.najbolji.datum)})`,
                   v.dani.length > 1 && razlika !== 0
-                    ? { text: `   ·   ${razlika > 0 ? "+" : "−"}${formatG(Math.abs(razlika))} ${v.poKg ? "kg" : "pon."}`, bold: true }
+                    ? {
+                        text: `   ·   ${razlika > 0 ? "+" : "−"}${formatG(Math.abs(razlika))} ${
+                          v.poKg ? "kg" : v.dani.every((d) => d.sekunde) ? "s" : "pon."
+                        }`,
+                        bold: true,
+                      }
                     : "",
                 ],
                 fontSize: 9,

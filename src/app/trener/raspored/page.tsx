@@ -20,7 +20,7 @@ import { mozeDijeliti, podijeli, preuzmi } from "@/lib/izvoz/spremi";
 import { kljucTreninga } from "@/lib/kalendar";
 import { opisTermina, type Termin } from "@/lib/raspored";
 import { supabase } from "@/lib/supabase/client";
-import { MISICNE_SKUPINE } from "@/lib/treninzi";
+import { MISICNE_SKUPINE, uSkupinu } from "@/lib/treninzi";
 
 type Oznake = Record<string, { skupine: string[]; zavrsen: boolean; nijeDosao: boolean }>;
 
@@ -56,7 +56,7 @@ function useOznake(od: string, doDana: string, verzija: number) {
         const oznake: Oznake = {};
         for (const r of data ?? []) {
           oznake[kljucTreninga(String(r.klijent_id), String(r.datum))] = {
-            skupine: Array.isArray(r.skupine) ? r.skupine.map(String) : [],
+            skupine: Array.isArray(r.skupine) ? r.skupine.map(uSkupinu) : [],
             zavrsen: Boolean(r.zavrsen),
             nijeDosao: Boolean(r.nije_dosao),
           };

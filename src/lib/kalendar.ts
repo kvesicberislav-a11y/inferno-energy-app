@@ -1,6 +1,6 @@
 // Treninzi iz kalendara (klijenti uživo): trener za termin (klijent + datum) slaže
 // mišićne skupine i vježbe, a na treningu upisuje odrađene serije.
-import { prviBroj, uSeriju, uSerijePlana, uVjezbu, type Serija, type SerijaPlana, type Vjezba } from "@/lib/treninzi";
+import { prviBroj, uSeriju, uSerijePlana, uSkupinu, uVjezbu, type Serija, type SerijaPlana, type Vjezba } from "@/lib/treninzi";
 
 export type TreningVjezba = {
   id: string;
@@ -40,7 +40,7 @@ export function uTreningKalendara(r: Red): TreningKalendara {
     klijent_id: String(r.klijent_id),
     datum: String(r.datum),
     naziv: String(r.naziv ?? ""),
-    skupine: Array.isArray(r.skupine) ? (r.skupine as unknown[]).map(String) : [],
+    skupine: Array.isArray(r.skupine) ? (r.skupine as unknown[]).map(uSkupinu) : [],
     zavrsen: Boolean(r.zavrsen),
     nijeDosao: Boolean(r.nije_dosao),
     vjezbe: ((r.vjezbe as Red[] | undefined) ?? [])
@@ -74,7 +74,7 @@ const KRATICE: Record<string, string> = {
   Biceps: "Bic",
   Triceps: "Tri",
   Trbuh: "Trb",
-  Noge: "Noge",
+  Kvadriceps: "Kvad",
   "Stražnja loža": "Lož",
   Gluteus: "Glut",
   Listovi: "List",

@@ -7,9 +7,10 @@ import { danMjesec } from "@/lib/datum";
 import { prevediGresku } from "@/lib/greske";
 import { formatG } from "@/lib/makroi";
 import { supabase } from "@/lib/supabase/client";
+import { uSkupinu } from "@/lib/treninzi";
 import { usePraceneVjezbe } from "./PraceneVjezbe";
 
-type Dan = { datum: string; kg: number; ponavljanja: number; serija: number };
+type Dan = { datum: string; kg: number; ponavljanja: number; serija: number; sekunde: boolean; rijec: string | null };
 type Vjezba = { id: string; naziv: string; skupina: string; dani: Dan[] };
 type Stanje = { kljuc: string; vjezbe: Vjezba[]; greska: string | null };
 
@@ -31,12 +32,14 @@ export function NapredakVjezbi({ klijentId, od, danas }: { klijentId: string; od
         const po = new Map<string, Vjezba>();
         for (const r of (data as Record<string, unknown>[] | null) ?? []) {
           const id = String(r.vjezba_id);
-          const v = po.get(id) ?? { id, naziv: String(r.naziv), skupina: String(r.misicna_skupina ?? ""), dani: [] };
+          const v = po.get(id) ?? { id, naziv: String(r.naziv), skupina: uSkupinu(r.misicna_skupina ?? ""), dani: [] };
           v.dani.push({
             datum: String(r.datum),
             kg: Number(r.kg),
             ponavljanja: Number(r.ponavljanja),
             serija: Number(r.serija),
+            sekunde: r.sekunde === true,
+            rijec: r.rijec ? String(r.rijec) : null,
           });
           po.set(id, v);
         }
@@ -69,7 +72,12 @@ export function NapredakVjezbi({ klijentId, od, danas }: { klijentId: string; od
     (m, d) => (!m || d.kg > m.kg || (d.kg === m.kg && d.ponavljanja > m.ponavljanja) ? d : m),
     null,
   );
-  const opis = (d: Dan) => (poKg ? `${formatG(d.kg)} kg × ${d.ponavljanja}` : `${d.ponavljanja} pon.`);
+  // vježba u sekundama (npr. plank) bez utega prati se po sekundama
+  const uSekundama = v ? v.dani.length > 0 && v.dani.every((d) => d.sekunde) : false;
+  const opis = (d: Dan) =>
+    poKg
+      ? `${formatG(d.kg)} kg × ${d.ponavljanja}${d.sekunde ? " s" : ""}`
+      : `${d.ponavljanja}${d.sekunde ? " s" : " pon."}${d.rijec ? ` · ${d.rijec}` : ""}`;
 
   return (
     <Kartica className="flex flex-col gap-3">
@@ -119,7 +127,7 @@ export function NapredakVjezbi({ klijentId, od, danas }: { klijentId: string; od
             <LinijskiGraf
               tocke={tocke}
               format={(n) => formatG(n)}
-              jedinica={poKg ? "kg" : "pon."}
+              jedinica={poKg ? "kg" : uSekundama ? "s" : "pon."}
               opis={`${v?.naziv ?? "Vježba"} kroz vrijeme`}
             />
           ) : (

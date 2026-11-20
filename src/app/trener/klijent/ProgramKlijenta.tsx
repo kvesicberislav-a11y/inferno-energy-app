@@ -9,7 +9,7 @@ import { Gumb, Kartica, Polje, Poruka } from "@/components/ui";
 import { puniDatum } from "@/lib/datum";
 import { prevediGresku } from "@/lib/greske";
 import { supabase } from "@/lib/supabase/client";
-import { DANI_KRATKO, nazivDana, tjedanCiklusa } from "@/lib/treninzi";
+import { DANI_KRATKO, nazivDana, tjedanCiklusa, uSkupinu } from "@/lib/treninzi";
 
 type DanSazetak = { tjedan: number; dan_u_tjednu: number; naziv: string; skupine: string[] };
 type Program = { id: string; naziv: string; od: string; ciklus: number; pocetak: string; dani: DanSazetak[] };
@@ -21,7 +21,7 @@ function uDane(r: unknown): DanSazetak[] {
       tjedan: Number(d.tjedan ?? 1),
       dan_u_tjednu: Number(d.dan_u_tjednu),
       naziv: String(d.naziv ?? ""),
-      skupine: Array.isArray(d.skupine) ? (d.skupine as unknown[]).map(String) : [],
+      skupine: Array.isArray(d.skupine) ? (d.skupine as unknown[]).map(uSkupinu) : [],
     }))
     .sort((a, b) => a.tjedan - b.tjedan || a.dan_u_tjednu - b.dan_u_tjednu);
 }

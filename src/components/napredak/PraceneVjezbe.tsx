@@ -6,6 +6,7 @@ import { Gumb, Poruka, Ucitavanje } from "@/components/ui";
 import { danasZagreb } from "@/lib/datum";
 import { prevediGresku } from "@/lib/greske";
 import { supabase } from "@/lib/supabase/client";
+import { uSkupinu } from "@/lib/treninzi";
 
 /** Praćene vježbe klijenta (za izvještaj i graf napretka). Prazno = sve vježbe. */
 export function usePraceneVjezbe(klijentId: string) {
@@ -59,7 +60,7 @@ export function OdabirPracenih({
         const po = new Map<string, VjezbaKlijenta>();
         for (const r of (data as Record<string, unknown>[] | null) ?? []) {
           const id = String(r.vjezba_id);
-          const v = po.get(id) ?? { id, naziv: String(r.naziv), skupina: String(r.misicna_skupina ?? ""), treninga: 0 };
+          const v = po.get(id) ?? { id, naziv: String(r.naziv), skupina: uSkupinu(r.misicna_skupina ?? ""), treninga: 0 };
           v.treninga += 1;
           po.set(id, v);
         }

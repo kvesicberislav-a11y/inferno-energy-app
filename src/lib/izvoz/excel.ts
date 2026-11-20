@@ -8,6 +8,7 @@ import {
   zadnjeVrijednosti,
   type Mjerenje,
 } from "@/lib/tijelo";
+import { volumenSerije } from "@/lib/treninzi";
 import { napredakPoVjezbama, nazivMjeseca } from "./napredak";
 import type { PodaciIzvoza } from "./podaci";
 
@@ -131,7 +132,7 @@ export async function napraviExcel(p: PodaciIzvoza): Promise<Blob> {
 
   // 5) Treninzi (jedna serija = jedan red)
   const treninzi: Redak[] = [
-    naslovi("Datum", "Trening", "Završen", "Vježba", "Serija", "Ponavljanja", "Kg", "Volumen (kg)"),
+    naslovi("Datum", "Trening", "Završen", "Vježba", "Serija", "Ponavljanja", "Kg", "Volumen (kg)", "U sekundama", "Opterećenje"),
     ...p.treninzi.flatMap((t) =>
       t.serije.length
         ? t.serije.map((s) => [
@@ -142,9 +143,11 @@ export async function napraviExcel(p: PodaciIzvoza): Promise<Blob> {
             s.redni,
             s.ponavljanja,
             broj(s.kg),
-            broj(s.kg * s.ponavljanja, 0),
+            broj(volumenSerije(s), 0),
+            s.sekunde ? "da" : null,
+            s.rijec,
           ])
-        : [[datum(t.datum), t.naziv, t.zavrsen ? "da" : "ne", null, null, null, null, null]],
+        : [[datum(t.datum), t.naziv, t.zavrsen ? "da" : "ne", null, null, null, null, null, null, null]],
     ),
   ];
 
@@ -196,7 +199,7 @@ export async function napraviExcel(p: PodaciIzvoza): Promise<Blob> {
       list("Prehrana po danima", prehrana, sir(12, 9, 12, 9, 10, 10, 8, 8, 8)),
       list("Obroci", obroci, sir(12, 28, 12, 9, 10, 8)),
       list("Mjerenja", mjerenja, sir(12, 12, 10, 10, 11, 10, 10, 10, 8, 9)),
-      list("Treninzi", treninzi, sir(12, 18, 9, 28, 8, 12, 8, 13)),
+      list("Treninzi", treninzi, sir(12, 18, 9, 28, 8, 12, 8, 13, 12, 16)),
       list("Napredak po vježbi", napredakRedovi, sir(48, 12, 12, 11, 10, 12, 14)),
       list("Napredak po mjesecima", poMjesecima, sir(48, 16, 12, 11, 16, 9)),
       list("Ciljevi", ciljevi, sir(12, 8, 12, 9, 10)),

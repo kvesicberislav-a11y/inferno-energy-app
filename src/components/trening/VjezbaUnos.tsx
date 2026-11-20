@@ -14,6 +14,7 @@ import { supabase } from "@/lib/supabase/client";
 import {
   nazivDana,
   opisCilja,
+  opisOdradjenih,
   prviBroj,
   serijaZaMjesto,
   uSeriju,
@@ -273,7 +274,7 @@ export function VjezbaUnos({
           {pv.napomena && <p className="mt-1 text-sm text-amber-200">{pv.napomena}</p>}
           {prosliPut && prosliPut.length > 0 && (
             <p className="mt-2 text-sm text-tekst-2 tabular-nums">
-              Prošli put: {prosliPut.map((s) => `${s.ponavljanja}×${formatG(s.kg)}`).join(", ")} kg
+              Prošli put: {opisOdradjenih(prosliPut)}
             </p>
           )}
         </div>

@@ -3,6 +3,7 @@
 import { useState, type ReactNode } from "react";
 import { Ploca } from "@/components/Ploca";
 import { Gumb, Poruka } from "@/components/ui";
+import { ZaglavljeSerija } from "@/components/trening/SerijeUnos";
 import { opisKilaze } from "@/components/trening/useBazneIKilaze";
 import { predlozakPonavljanja, type TreningVjezba } from "@/lib/kalendar";
 import { prevediGresku } from "@/lib/greske";
@@ -10,9 +11,22 @@ import { formatG, parsirajBroj } from "@/lib/makroi";
 import { supabase } from "@/lib/supabase/client";
 import { opisCilja, serijePlana, uSeriju, type Kilaza, type PodaciBazne, type Serija } from "@/lib/treninzi";
 
+/** `kg` je tekst drugog polja: kilaža, a ako je vježba „riječ” – opterećenje riječju (npr. "žuta guma"). */
 type Red = { redni: number; ponavljanja: string; kg: string; spremljeno: Serija | null };
+/** cijela vježba: sekunde umjesto ponavljanja, riječ umjesto kilaže */
+type Nacin = { sekunde: boolean; rijec: boolean };
 
-function pocetniRedovi(tv: TreningVjezba, spremljene: Serija[]): Red[] {
+const tekstOpterecenja = (s: Serija) => s.rijec ?? formatG(s.kg);
+const istiNacin = (s: Serija, n: Nacin) => s.sekunde === n.sekunde && (s.rijec !== null) === n.rijec;
+
+function pocetniNacin(tv: TreningVjezba, spremljene: Serija[]): Nacin {
+  const s = [...spremljene].sort((a, b) => a.redni_broj - b.redni_broj)[0];
+  if (s) return { sekunde: s.sekunde, rijec: s.rijec !== null };
+  const p = serijePlana(tv)[0];
+  return { sekunde: Boolean(p?.sekunde), rijec: Boolean(p?.rijec) };
+}
+
+function pocetniRedovi(tv: TreningVjezba, spremljene: Serija[], nacin: Nacin): Red[] {
   // plan svake serije (različita ponavljanja i kilaža po seriji, ili sve iste)
   const plan = serijePlana(tv);
   const broj = Math.max(plan.length, spremljene.reduce((m, s) => Math.max(m, s.redni_broj), 0));
@@ -20,13 +34,16 @@ function pocetniRedovi(tv: TreningVjezba, spremljene: Serija[]): Red[] {
     const s = spremljene.find((x) => x.redni_broj === i + 1) ?? null;
     const p = plan[Math.min(i, plan.length - 1)];
     const pon = predlozakPonavljanja(p.ponavljanja);
-    const kg = p.kg !== null && p.kg > 0 ? formatG(p.kg) : "";
-    return { redni: i + 1, ponavljanja: s ? String(s.ponavljanja) : pon, kg: s ? formatG(s.kg) : kg, spremljeno: s };
+    const kg = nacin.rijec ? (p.rijec ?? "") : p.kg !== null && p.kg > 0 ? formatG(p.kg) : "";
+    return { redni: i + 1, ponavljanja: s ? String(s.ponavljanja) : pon, kg: s ? tekstOpterecenja(s) : kg, spremljeno: s };
   });
 }
 
-const promijenjen = (r: Red) =>
-  !r.spremljeno || r.ponavljanja !== String(r.spremljeno.ponavljanja) || r.kg !== formatG(r.spremljeno.kg);
+const promijenjen = (r: Red, n: Nacin) =>
+  !r.spremljeno ||
+  r.ponavljanja !== String(r.spremljeno.ponavljanja) ||
+  r.kg !== tekstOpterecenja(r.spremljeno) ||
+  !istiNacin(r.spremljeno, n);
 
 /** Trener na treningu upisuje koliko je klijent stvarno napravio (serija po serija). */
 export function UpisSerija({
@@ -52,7 +69,8 @@ export function UpisSerija({
   onPromjena: () => void;
   onZatvori: () => void;
 }) {
-  const [redovi, setRedovi] = useState<Red[]>(() => pocetniRedovi(tv, spremljene));
+  const [nacin, setNacin] = useState<Nacin>(() => pocetniNacin(tv, spremljene));
+  const [redovi, setRedovi] = useState<Red[]>(() => pocetniRedovi(tv, spremljene, pocetniNacin(tv, spremljene)));
   const [radi, setRadi] = useState<number | null>(null);
   const [greska, setGreska] = useState<string | null>(null);
 
@@ -60,15 +78,32 @@ export function UpisSerija({
     setRedovi((rr) => rr.map((r, j) => (j === i ? { ...r, [polje]: vrijednost } : r)));
   }
 
+  /** kg ⇄ riječ: kilaža i riječ se ne prepisuju jedna u drugu (vraća se ono što je spremljeno na taj način) */
+  function prebaciRijec() {
+    const novi = { ...nacin, rijec: !nacin.rijec };
+    setNacin(novi);
+    setRedovi((rr) =>
+      rr.map((r) => ({ ...r, kg: r.spremljeno && (r.spremljeno.rijec !== null) === novi.rijec ? tekstOpterecenja(r.spremljeno) : "" })),
+    );
+  }
+
   async function spremi(i: number) {
     const r = redovi[i];
     setGreska(null);
     const ponavljanja = r.ponavljanja.trim() === "" ? null : Number(r.ponavljanja.trim());
     if (ponavljanja === null || !Number.isInteger(ponavljanja) || ponavljanja < 0 || ponavljanja > 1000) {
-      return setGreska(`Serija ${r.redni}: upiši broj ponavljanja.`);
+      return setGreska(`Serija ${r.redni}: upiši broj ${nacin.sekunde ? "sekundi" : "ponavljanja"}.`);
     }
-    const kg = parsirajBroj(r.kg);
-    if (kg === null || kg > 1000) return setGreska(`Serija ${r.redni}: kilaža nije ispravna.`);
+    let kg = 0;
+    let rijec: string | null = null;
+    if (nacin.rijec) {
+      rijec = r.kg.trim().slice(0, 40);
+      if (!rijec) return setGreska(`Serija ${r.redni}: upiši opterećenje (npr. žuta guma).`);
+    } else {
+      const k = parsirajBroj(r.kg);
+      if (k === null || k > 1000) return setGreska(`Serija ${r.redni}: kilaža nije ispravna.`);
+      kg = k;
+    }
     setRadi(i);
     const { data, error } = await supabase()
       .from("odradjene_serije")
@@ -81,6 +116,8 @@ export function UpisSerija({
           redni_broj: r.redni,
           ponavljanja,
           kg,
+          sekunde: nacin.sekunde,
+          rijec,
         },
         { onConflict: "trening_id,plan_vjezba_id,vjezba_id,redni_broj" },
       )
@@ -90,7 +127,7 @@ export function UpisSerija({
     if (error || !data) return setGreska(prevediGresku(error?.message));
     const s = uSeriju(data);
     setRedovi((rr) =>
-      rr.map((x, j) => (j === i ? { ...x, ponavljanja: String(s.ponavljanja), kg: formatG(s.kg), spremljeno: s } : x)),
+      rr.map((x, j) => (j === i ? { ...x, ponavljanja: String(s.ponavljanja), kg: tekstOpterecenja(s), spremljeno: s } : x)),
     );
     onPromjena();
   }
@@ -152,20 +189,21 @@ export function UpisSerija({
               {spremljenih}/{redovi.length} serija
             </span>
           </div>
-          <div className="grid grid-cols-[1.75rem_1fr_auto_1fr_3rem] items-center gap-x-2 text-xs text-tekst-2">
-            <span />
-            <span className="text-center">ponavljanja</span>
-            <span />
-            <span className="text-center">kg</span>
-            <span />
-          </div>
+          <ZaglavljeSerija
+            sekunde={nacin.sekunde}
+            rijec={nacin.rijec}
+            onSekunde={() => setNacin((n) => ({ ...n, sekunde: !n.sekunde }))}
+            onRijec={prebaciRijec}
+            kolone="grid-cols-[1.75rem_1fr_auto_1fr_3rem]"
+            saKvacicom
+          />
           {redovi.map((r, i) => {
-            const p = promijenjen(r);
+            const p = promijenjen(r, nacin);
             return (
               <div key={r.redni} className="grid grid-cols-[1.75rem_1fr_auto_1fr_3rem] items-center gap-x-2">
                 <span className="text-center font-semibold text-tekst-2">{r.redni}</span>
                 <input
-                  aria-label={`Serija ${r.redni} – ponavljanja`}
+                  aria-label={`Serija ${r.redni} – ${nacin.sekunde ? "sekunde" : "ponavljanja"}`}
                   inputMode="numeric"
                   value={r.ponavljanja}
                   placeholder={tv.ponavljanja}
@@ -174,15 +212,26 @@ export function UpisSerija({
                   className={polje}
                 />
                 <span className="text-tekst-2">×</span>
-                <input
-                  aria-label={`Serija ${r.redni} – kilogrami`}
-                  inputMode="decimal"
-                  value={r.kg}
-                  placeholder="0"
-                  onChange={(e) => promijeni(i, "kg", e.target.value)}
-                  onFocus={(e) => e.target.select()}
-                  className={polje}
-                />
+                {nacin.rijec ? (
+                  <input
+                    aria-label={`Serija ${r.redni} – opterećenje`}
+                    maxLength={40}
+                    value={r.kg}
+                    placeholder="npr. žuta guma"
+                    onChange={(e) => promijeni(i, "kg", e.target.value)}
+                    className={`${polje} px-2 text-base font-medium`}
+                  />
+                ) : (
+                  <input
+                    aria-label={`Serija ${r.redni} – kilogrami`}
+                    inputMode="decimal"
+                    value={r.kg}
+                    placeholder="0"
+                    onChange={(e) => promijeni(i, "kg", e.target.value)}
+                    onFocus={(e) => e.target.select()}
+                    className={polje}
+                  />
+                )}
                 <button
                   type="button"
                   aria-label={p ? `Spremi seriju ${r.redni}` : `Poništi seriju ${r.redni}`}

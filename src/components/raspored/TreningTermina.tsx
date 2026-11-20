@@ -18,10 +18,9 @@ import {
   type TreningKalendara,
   type TreningVjezba,
 } from "@/lib/kalendar";
-import { formatG } from "@/lib/makroi";
 import { opisTermina, type Termin } from "@/lib/raspored";
 import { supabase } from "@/lib/supabase/client";
-import { opisCilja, poSkupinama, sazmiSerije, type Vjezba } from "@/lib/treninzi";
+import { opisCilja, opisOdradjenih, poSkupinama, sazmiSerije, type Vjezba } from "@/lib/treninzi";
 import { KopirajTrening } from "./KopirajTrening";
 import { UpisSerija } from "./UpisSerija";
 
@@ -149,14 +148,14 @@ export function TreningTermina({
         if (b?.serije_plan?.length) {
           return { trening_id: id, vjezba_id: v.id, redoslijed: pocetak + i, ...sazmiSerije(b.serije_plan) };
         }
-        return {
-          trening_id: id,
-          vjezba_id: v.id,
-          redoslijed: pocetak + i,
-          serije: k?.maxSerija && k.maxSerija > 0 ? Math.min(20, k.maxSerija) : 3,
-          ponavljanja: String(k?.maxPonavljanja && k.maxPonavljanja > 0 ? k.maxPonavljanja : 10),
-          kg: k?.maxKg ?? null,
-        };
+        const serije = k?.maxSerija && k.maxSerija > 0 ? Math.min(20, k.maxSerija) : 3;
+        const ponavljanja = String(k?.maxPonavljanja && k.maxPonavljanja > 0 ? k.maxPonavljanja : 10);
+        const kg = k?.maxKg ?? null;
+        // najbolji rezultat u sekundama (npr. plank) → i plan je u sekundama
+        const plan = k?.maxSekunde
+          ? sazmiSerije(Array.from({ length: serije }, () => ({ ponavljanja, kg, sekunde: true as const })))
+          : { serije, ponavljanja, kg };
+        return { trening_id: id, vjezba_id: v.id, redoslijed: pocetak + i, ...plan };
       });
       const { error } = await sb.from("trening_vjezbe").insert(redovi);
       if (error) return prevediGresku(error.message);
@@ -340,7 +339,7 @@ export function TreningTermina({
                           ? max && <span className="block truncate text-xs text-tekst-2">{max}</span>
                           : upisane.length > 0 && (
                               <span className="block truncate text-xs text-emerald-300 tabular-nums">
-                                {upisane.map((s) => `${s.ponavljanja}×${formatG(s.kg)}`).join(", ")}
+                                {opisOdradjenih(upisane, false)}
                               </span>
                             )}
                       </span>

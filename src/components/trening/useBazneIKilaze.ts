@@ -84,18 +84,22 @@ export function useStalneNapomene(klijentId: string | null) {
   return stanje?.klijentId === klijentId ? stanje.napomene : new Map<string, string>();
 }
 
+const s = (sekunde: boolean | undefined) => (sekunde ? " s" : "");
+
 /** "max 80 kg × 6 · 4 serije" (ili null ako klijent još nije radio tu vježbu s kilažom) */
 export function kratkoMax(k: Kilaza | null | undefined) {
   if (!k || k.maxKg === null) return null;
   const serije = k.maxSerija ? ` · ${k.maxSerija} ${k.maxSerija === 1 ? "serija" : k.maxSerija < 5 ? "serije" : "serija"}` : "";
-  return `max ${formatG(k.maxKg)} kg × ${k.maxPonavljanja ?? "?"}${serije}`;
+  return `max ${formatG(k.maxKg)} kg × ${k.maxPonavljanja ?? "?"}${s(k.maxSekunde)}${serije}`;
 }
 
+type NajtezaBazna = { kg: number; ponavljanja: string; sekunde: boolean };
+
 /** Najteža serija u baznim serijama (ili null ako nema kilaže). */
-function maxBaznih(b: PodaciBazne | null | undefined): { kg: number; ponavljanja: string } | null {
-  let naj: { kg: number; ponavljanja: string } | null = null;
-  for (const s of b?.serije_plan ?? []) {
-    if (s.kg !== null && s.kg > 0 && (!naj || s.kg > naj.kg)) naj = { kg: s.kg, ponavljanja: s.ponavljanja };
+function maxBaznih(b: PodaciBazne | null | undefined): NajtezaBazna | null {
+  let naj: NajtezaBazna | null = null;
+  for (const x of b?.serije_plan ?? []) {
+    if (x.kg !== null && x.kg > 0 && (!naj || x.kg > naj.kg)) naj = { kg: x.kg, ponavljanja: x.ponavljanja, sekunde: Boolean(x.sekunde) };
   }
   return naj;
 }
@@ -114,7 +118,7 @@ export function najvecaKg(k: Kilaza | null | undefined, b: PodaciBazne | null | 
 /** "max 80 kg × 6" – najveće s treninga ili iz baznih serija (što je veće). */
 export function kratkoNajvise(k: Kilaza | null | undefined, b: PodaciBazne | null | undefined) {
   const bm = baznaJeVeca(k, b);
-  return bm ? `max ${formatG(bm.kg)} kg × ${bm.ponavljanja}` : kratkoMax(k);
+  return bm ? `max ${formatG(bm.kg)} kg × ${bm.ponavljanja}${s(bm.sekunde)}` : kratkoMax(k);
 }
 
 /** Najveća kilaža, a ako je nema – bazne serije. */
@@ -128,20 +132,24 @@ export function opisKilaze(k: Kilaza | null | undefined, polazno?: PodaciBazne |
   const bm = baznaJeVeca(k, polazno);
   if (!k) {
     if (!p) return "Klijent još nije radio ovu vježbu.";
-    return bm ? `Najviše ${formatG(bm.kg)} kg × ${bm.ponavljanja} · ${p}` : p;
+    return bm ? `Najviše ${formatG(bm.kg)} kg × ${bm.ponavljanja}${s(bm.sekunde)} · ${p}` : p;
   }
   const dijelovi: string[] = [];
   if (bm) {
-    dijelovi.push(`Najviše ${formatG(bm.kg)} kg × ${bm.ponavljanja}`);
+    dijelovi.push(`Najviše ${formatG(bm.kg)} kg × ${bm.ponavljanja}${s(bm.sekunde)}`);
   } else if (k.maxKg !== null) {
     dijelovi.push(
-      `Najviše ${formatG(k.maxKg)} kg × ${k.maxPonavljanja ?? "?"}${k.maxSerija ? `, ${k.maxSerija} ser.` : ""}${
+      `Najviše ${formatG(k.maxKg)} kg × ${k.maxPonavljanja ?? "?"}${s(k.maxSekunde)}${k.maxSerija ? `, ${k.maxSerija} ser.` : ""}${
         k.maxDatum ? ` (${danMjesec(k.maxDatum)})` : ""
       }`,
     );
   }
   if (k.zadnjaKg !== null && k.zadnjiDatum && k.zadnjiDatum !== k.maxDatum) {
-    dijelovi.push(`zadnje ${formatG(k.zadnjaKg)} kg × ${k.zadnjaPonavljanja ?? "?"} (${danMjesec(k.zadnjiDatum)})`);
+    dijelovi.push(
+      k.zadnjaRijec
+        ? `zadnje ${k.zadnjaPonavljanja ?? "?"}${s(k.zadnjaSekunde)} × ${k.zadnjaRijec} (${danMjesec(k.zadnjiDatum)})`
+        : `zadnje ${formatG(k.zadnjaKg)} kg × ${k.zadnjaPonavljanja ?? "?"}${s(k.zadnjaSekunde)} (${danMjesec(k.zadnjiDatum)})`,
+    );
   }
   if (p) dijelovi.push(p);
   return dijelovi.length ? dijelovi.join(" · ") : "Radio je bez dodatne kilaže.";
