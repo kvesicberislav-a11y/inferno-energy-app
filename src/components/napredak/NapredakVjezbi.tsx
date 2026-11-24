@@ -5,7 +5,7 @@ import { LinijskiGraf, TablicaPodataka, type Tocka } from "@/components/grafovi/
 import { Kartica, Poruka } from "@/components/ui";
 import { danMjesec } from "@/lib/datum";
 import { prevediGresku } from "@/lib/greske";
-import { formatG } from "@/lib/makroi";
+import { formatKg } from "@/lib/makroi";
 import { supabase } from "@/lib/supabase/client";
 import { uSkupinu } from "@/lib/treninzi";
 import { usePraceneVjezbe } from "./PraceneVjezbe";
@@ -76,7 +76,7 @@ export function NapredakVjezbi({ klijentId, od, danas }: { klijentId: string; od
   const uSekundama = v ? v.dani.length > 0 && v.dani.every((d) => d.sekunde) : false;
   const opis = (d: Dan) =>
     poKg
-      ? `${formatG(d.kg)} kg × ${d.ponavljanja}${d.sekunde ? " s" : ""}`
+      ? `${formatKg(d.kg)} kg × ${d.ponavljanja}${d.sekunde ? " s" : ""}`
       : `${d.ponavljanja}${d.sekunde ? " s" : " pon."}${d.rijec ? ` · ${d.rijec}` : ""}`;
 
   return (
@@ -120,13 +120,13 @@ export function NapredakVjezbi({ klijentId, od, danas }: { klijentId: string; od
           {v && poKg && prvi && zadnji && zadnji.kg !== prvi.kg && (
             <p className={`text-sm font-semibold ${zadnji.kg > prvi.kg ? "text-emerald-300" : "text-amber-200"}`}>
               {zadnji.kg > prvi.kg ? "+" : ""}
-              {formatG(zadnji.kg - prvi.kg)} kg od prvog treninga u razdoblju
+              {formatKg(zadnji.kg - prvi.kg)} kg od prvog treninga u razdoblju
             </p>
           )}
           {tocke.filter((t) => t.vrijednost !== null).length >= 2 ? (
             <LinijskiGraf
               tocke={tocke}
-              format={(n) => formatG(n)}
+              format={(n) => formatKg(n)}
               jedinica={poKg ? "kg" : uSekundama ? "s" : "pon."}
               opis={`${v?.naziv ?? "Vježba"} kroz vrijeme`}
             />

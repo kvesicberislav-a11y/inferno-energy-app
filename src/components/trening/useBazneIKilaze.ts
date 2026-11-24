@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { danMjesec } from "@/lib/datum";
 import { prevediGresku } from "@/lib/greske";
-import { formatG } from "@/lib/makroi";
+import { formatKg } from "@/lib/makroi";
 import { supabase } from "@/lib/supabase/client";
 import { kratkoPolazno, uKilazu, uPodatkeBazne, type Kilaza, type PodaciBazne } from "@/lib/treninzi";
 
@@ -90,7 +90,7 @@ const s = (sekunde: boolean | undefined) => (sekunde ? " s" : "");
 export function kratkoMax(k: Kilaza | null | undefined) {
   if (!k || k.maxKg === null) return null;
   const serije = k.maxSerija ? ` · ${k.maxSerija} ${k.maxSerija === 1 ? "serija" : k.maxSerija < 5 ? "serije" : "serija"}` : "";
-  return `max ${formatG(k.maxKg)} kg × ${k.maxPonavljanja ?? "?"}${s(k.maxSekunde)}${serije}`;
+  return `max ${formatKg(k.maxKg)} kg × ${k.maxPonavljanja ?? "?"}${s(k.maxSekunde)}${serije}`;
 }
 
 type NajtezaBazna = { kg: number; ponavljanja: string; sekunde: boolean };
@@ -118,7 +118,7 @@ export function najvecaKg(k: Kilaza | null | undefined, b: PodaciBazne | null | 
 /** "max 80 kg × 6" – najveće s treninga ili iz baznih serija (što je veće). */
 export function kratkoNajvise(k: Kilaza | null | undefined, b: PodaciBazne | null | undefined) {
   const bm = baznaJeVeca(k, b);
-  return bm ? `max ${formatG(bm.kg)} kg × ${bm.ponavljanja}${s(bm.sekunde)}` : kratkoMax(k);
+  return bm ? `max ${formatKg(bm.kg)} kg × ${bm.ponavljanja}${s(bm.sekunde)}` : kratkoMax(k);
 }
 
 /** Najveća kilaža, a ako je nema – bazne serije. */
@@ -132,14 +132,14 @@ export function opisKilaze(k: Kilaza | null | undefined, polazno?: PodaciBazne |
   const bm = baznaJeVeca(k, polazno);
   if (!k) {
     if (!p) return "Klijent još nije radio ovu vježbu.";
-    return bm ? `Najviše ${formatG(bm.kg)} kg × ${bm.ponavljanja}${s(bm.sekunde)} · ${p}` : p;
+    return bm ? `Najviše ${formatKg(bm.kg)} kg × ${bm.ponavljanja}${s(bm.sekunde)} · ${p}` : p;
   }
   const dijelovi: string[] = [];
   if (bm) {
-    dijelovi.push(`Najviše ${formatG(bm.kg)} kg × ${bm.ponavljanja}${s(bm.sekunde)}`);
+    dijelovi.push(`Najviše ${formatKg(bm.kg)} kg × ${bm.ponavljanja}${s(bm.sekunde)}`);
   } else if (k.maxKg !== null) {
     dijelovi.push(
-      `Najviše ${formatG(k.maxKg)} kg × ${k.maxPonavljanja ?? "?"}${s(k.maxSekunde)}${k.maxSerija ? `, ${k.maxSerija} ser.` : ""}${
+      `Najviše ${formatKg(k.maxKg)} kg × ${k.maxPonavljanja ?? "?"}${s(k.maxSekunde)}${k.maxSerija ? `, ${k.maxSerija} ser.` : ""}${
         k.maxDatum ? ` (${danMjesec(k.maxDatum)})` : ""
       }`,
     );
@@ -148,7 +148,7 @@ export function opisKilaze(k: Kilaza | null | undefined, polazno?: PodaciBazne |
     dijelovi.push(
       k.zadnjaRijec
         ? `zadnje ${k.zadnjaPonavljanja ?? "?"}${s(k.zadnjaSekunde)} × ${k.zadnjaRijec} (${danMjesec(k.zadnjiDatum)})`
-        : `zadnje ${formatG(k.zadnjaKg)} kg × ${k.zadnjaPonavljanja ?? "?"}${s(k.zadnjaSekunde)} (${danMjesec(k.zadnjiDatum)})`,
+        : `zadnje ${formatKg(k.zadnjaKg)} kg × ${k.zadnjaPonavljanja ?? "?"}${s(k.zadnjaSekunde)} (${danMjesec(k.zadnjiDatum)})`,
     );
   }
   if (p) dijelovi.push(p);

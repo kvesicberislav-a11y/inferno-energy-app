@@ -1,5 +1,5 @@
 // Napredak po vježbi za izvještaj: najteža serija na svakom treningu i sažetak po mjesecima.
-import { formatG } from "@/lib/makroi";
+import { formatKg } from "@/lib/makroi";
 import { volumenSerije } from "@/lib/treninzi";
 import type { TreningIzvoza } from "./podaci";
 
@@ -16,7 +16,7 @@ export type DanVjezbe = {
 
 /** Najteža serija: "60 kg × 8", "5 kg × 60 s", "12 pon.", "60 s", "10 pon. · žuta guma" */
 export function opisNajteze(poKg: boolean, d: Pick<DanVjezbe, "kg" | "ponavljanja" | "sekunde" | "rijec">) {
-  if (poKg) return `${formatG(d.kg)} kg × ${d.ponavljanja}${d.sekunde ? " s" : ""}`;
+  if (poKg) return `${formatKg(d.kg)} kg × ${d.ponavljanja}${d.sekunde ? " s" : ""}`;
   return `${d.ponavljanja}${d.sekunde ? " s" : " pon."}${d.rijec ? ` · ${d.rijec}` : ""}`;
 }
 export type MjesecVjezbe = { mjesec: string; najteza: DanVjezbe; prosjekKg: number | null; treninga: number };

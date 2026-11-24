@@ -1,7 +1,7 @@
 // PDF izvještaj o napretku klijenta – generira se u pregledniku (pdfmake, font Roboto s hrvatskim slovima).
 import type { Content, TableCell, TDocumentDefinitions } from "pdfmake/interfaces";
 import { danMjesec, dodajDane, ponedjeljak, puniDatum } from "@/lib/datum";
-import { formatG, formatKcal } from "@/lib/makroi";
+import { formatG, formatKcal, formatKg } from "@/lib/makroi";
 import {
   MJERE,
   bazalniMetabolizam,
@@ -212,7 +212,7 @@ export async function napraviPdf(p: PodaciIzvoza): Promise<Blob> {
                   ` (${danMjesec(v.najbolji.datum)})`,
                   v.dani.length > 1 && razlika !== 0
                     ? {
-                        text: `   ·   ${razlika > 0 ? "+" : "−"}${formatG(Math.abs(razlika))} ${
+                        text: `   ·   ${razlika > 0 ? "+" : "−"}${formatKg(Math.abs(razlika))} ${
                           v.poKg ? "kg" : v.dani.every((d) => d.sekunde) ? "s" : "pon."
                         }`,
                         bold: true,
@@ -222,7 +222,7 @@ export async function napraviPdf(p: PodaciIzvoza): Promise<Blob> {
                 fontSize: 9,
                 margin: [0, 2, 0, 4],
               },
-              ...(tocke.length >= 2 ? [{ svg: svgLinija(tocke, (n) => formatG(n), 110), width: 515 } as Content] : []),
+              ...(tocke.length >= 2 ? [{ svg: svgLinija(tocke, (n) => formatKg(n), 110), width: 515 } as Content] : []),
               {
                 layout: "lightHorizontalLines",
                 fontSize: 9,
@@ -240,7 +240,7 @@ export async function napraviPdf(p: PodaciIzvoza): Promise<Blob> {
                     ...v.mjeseci.map((m) => [
                       nazivMjeseca(m.mjesec),
                       serijaTekst(v, m.najteza),
-                      v.poKg && m.prosjekKg !== null ? `${formatG(m.prosjekKg)} kg` : "—",
+                      v.poKg && m.prosjekKg !== null ? `${formatKg(m.prosjekKg)} kg` : "—",
                       String(m.treninga),
                     ]),
                   ],

@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, type RefObject } from "react";
 import { prevediGresku } from "@/lib/greske";
-import { formatG } from "@/lib/makroi";
+import { formatKg, zaokruziKg } from "@/lib/makroi";
 import { supabase } from "@/lib/supabase/client";
 import { KORAK_KG } from "@/lib/treninzi";
 
@@ -58,7 +58,7 @@ export function KgKoraci({
     let nova: number | null;
     if (kg === null) nova = smjer > 0 ? (maxKg ?? KORAK_KG) : null;
     else {
-      nova = Math.round((kg + smjer * KORAK_KG) * 10) / 10;
+      nova = zaokruziKg(kg + smjer * KORAK_KG);
       if (nova <= 0) nova = null;
     }
     nova = nova !== null ? Math.min(1000, nova) : null;
@@ -79,7 +79,7 @@ export function KgKoraci({
         −
       </button>
       <span className="w-12 text-center leading-none tabular-nums">
-        <span className="block text-base font-bold">{kg !== null ? formatG(kg) : "—"}</span>
+        <span className="block text-base font-bold">{kg !== null ? formatKg(kg) : "—"}</span>
         <span className="text-[10px] text-tekst-2">kg</span>
       </span>
       <button type="button" aria-label="Više kilograma" className={gumb} onClick={() => promijeni(1)}>

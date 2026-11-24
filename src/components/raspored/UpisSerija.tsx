@@ -7,7 +7,7 @@ import { ZaglavljeSerija } from "@/components/trening/SerijeUnos";
 import { opisKilaze } from "@/components/trening/useBazneIKilaze";
 import { predlozakPonavljanja, rijecSerija, type TreningVjezba } from "@/lib/kalendar";
 import { prevediGresku } from "@/lib/greske";
-import { formatG, parsirajBroj } from "@/lib/makroi";
+import { formatKg, parsirajKg } from "@/lib/makroi";
 import { supabase } from "@/lib/supabase/client";
 import { opisCilja, serijePlana, uSeriju, type Kilaza, type PodaciBazne, type Serija } from "@/lib/treninzi";
 
@@ -16,7 +16,7 @@ type Red = { redni: number; ponavljanja: string; kg: string; spremljeno: Serija 
 /** cijela vježba: sekunde umjesto ponavljanja, riječ umjesto kilaže */
 type Nacin = { sekunde: boolean; rijec: boolean };
 
-const tekstOpterecenja = (s: Serija) => s.rijec ?? formatG(s.kg);
+const tekstOpterecenja = (s: Serija) => s.rijec ?? formatKg(s.kg);
 const istiNacin = (s: Serija, n: Nacin) => s.sekunde === n.sekunde && (s.rijec !== null) === n.rijec;
 
 function pocetniNacin(tv: TreningVjezba, spremljene: Serija[]): Nacin {
@@ -34,7 +34,7 @@ function pocetniRedovi(tv: TreningVjezba, spremljene: Serija[], nacin: Nacin): R
     const s = spremljene.find((x) => x.redni_broj === i + 1) ?? null;
     const p = plan[Math.min(i, plan.length - 1)];
     const pon = predlozakPonavljanja(p.ponavljanja);
-    const kg = nacin.rijec ? (p.rijec ?? "") : p.kg !== null && p.kg > 0 ? formatG(p.kg) : "";
+    const kg = nacin.rijec ? (p.rijec ?? "") : p.kg !== null && p.kg > 0 ? formatKg(p.kg) : "";
     return { redni: i + 1, ponavljanja: s ? String(s.ponavljanja) : pon, kg: s ? tekstOpterecenja(s) : kg, spremljeno: s };
   });
 }
@@ -114,7 +114,7 @@ export function UpisSerija({
       rijec = r.kg.trim().slice(0, 40);
       if (!rijec) return setGreska(`Serija ${r.redni}: upiši opterećenje (npr. žuta guma).`);
     } else {
-      const k = parsirajBroj(r.kg);
+      const k = parsirajKg(r.kg);
       if (k === null || k > 1000) return setGreska(`Serija ${r.redni}: kilaža nije ispravna.`);
       kg = k;
     }

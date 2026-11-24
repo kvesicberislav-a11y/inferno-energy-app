@@ -9,7 +9,7 @@ import { OdabirVjezbe } from "@/components/vjezbe/OdabirVjezbe";
 import { VideoVjezbe } from "@/components/vjezbe/VideoVjezbe";
 import { VjezbaForma } from "@/components/vjezbe/VjezbaForma";
 import { prevediGresku } from "@/lib/greske";
-import { formatG, parsirajBroj } from "@/lib/makroi";
+import { formatKg, parsirajKg } from "@/lib/makroi";
 import { supabase } from "@/lib/supabase/client";
 import {
   nazivDana,
@@ -32,13 +32,13 @@ function pocetniRedovi(pv: PlanVjezba, spremljene: Serija[], jeZamjena: boolean)
   const broj = Math.max(pv.serije, spremljene.reduce((m, s) => Math.max(m, s.redni_broj), 0));
   const ponCilj = /^\s*\d+\s*$/.test(pv.ponavljanja) ? String(prviBroj(pv.ponavljanja)) : "";
   // Kilaža iz plana ne vrijedi za zamjensku spravu.
-  const kgCilj = !jeZamjena && pv.kg !== null && pv.kg > 0 ? formatG(pv.kg) : "";
+  const kgCilj = !jeZamjena && pv.kg !== null && pv.kg > 0 ? formatKg(pv.kg) : "";
   return Array.from({ length: broj }, (_, i) => {
     const s = spremljene.find((x) => x.redni_broj === i + 1) ?? null;
     return {
       redni: i + 1,
       ponavljanja: s ? String(s.ponavljanja) : ponCilj,
-      kg: s ? formatG(s.kg) : kgCilj,
+      kg: s ? formatKg(s.kg) : kgCilj,
       spremljeno: s,
     };
   });
@@ -46,7 +46,7 @@ function pocetniRedovi(pv: PlanVjezba, spremljene: Serija[], jeZamjena: boolean)
 
 function jePromijenjen(r: Red) {
   if (!r.spremljeno) return true;
-  return r.ponavljanja !== String(r.spremljeno.ponavljanja) || r.kg !== formatG(r.spremljeno.kg);
+  return r.ponavljanja !== String(r.spremljeno.ponavljanja) || r.kg !== formatKg(r.spremljeno.kg);
 }
 
 /** Vježba iz današnjeg treninga: video, opis, unos serija i zamjena vježbe. */
@@ -116,7 +116,7 @@ export function VjezbaUnos({
             rr.map((r) => {
               if (r.spremljeno || r.dirnut) return r;
               const p = zadnje.find((s) => s.redni_broj === r.redni) ?? zadnje[zadnje.length - 1];
-              return { ...r, ponavljanja: String(p.ponavljanja), kg: formatG(p.kg) };
+              return { ...r, ponavljanja: String(p.ponavljanja), kg: formatKg(p.kg) };
             }),
           );
         }
@@ -157,7 +157,7 @@ export function VjezbaUnos({
     if (ponavljanja === null || !Number.isInteger(ponavljanja) || ponavljanja < 0 || ponavljanja > 1000) {
       return setGreska(`Serija ${r.redni}: upiši broj ponavljanja.`);
     }
-    const kg = parsirajBroj(r.kg);
+    const kg = parsirajKg(r.kg);
     if (kg === null || kg > 1000) return setGreska(`Serija ${r.redni}: kilaža nije ispravna.`);
 
     setRadi(i);
@@ -184,7 +184,7 @@ export function VjezbaUnos({
       const s = uSeriju(data);
       setRedovi((rr) =>
         rr.map((x, j) =>
-          j === i ? { ...x, ponavljanja: String(s.ponavljanja), kg: formatG(s.kg), spremljeno: s } : x,
+          j === i ? { ...x, ponavljanja: String(s.ponavljanja), kg: formatKg(s.kg), spremljeno: s } : x,
         ),
       );
       onPromjena();

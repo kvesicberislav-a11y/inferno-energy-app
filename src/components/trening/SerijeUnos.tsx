@@ -1,7 +1,7 @@
 "use client";
 
 import { Gumb } from "@/components/ui";
-import { formatG, parsirajBroj } from "@/lib/makroi";
+import { formatKg, parsirajKg, zaokruziKg } from "@/lib/makroi";
 import { KORAK_KG, type SerijaPlana } from "@/lib/treninzi";
 
 /**
@@ -18,7 +18,7 @@ export function redoviIzPlana(plan: SerijaPlana[] | null | undefined, prazno: nu
     const rijec = Boolean(plan[0].rijec);
     return plan.map((s) => ({
       ponavljanja: s.ponavljanja,
-      kg: rijec ? (s.rijec ?? "") : s.kg !== null ? formatG(s.kg) : "",
+      kg: rijec ? (s.rijec ?? "") : s.kg !== null ? formatKg(s.kg) : "",
       sekunde,
       rijec,
     }));
@@ -38,7 +38,7 @@ export function planIzRedova(redovi: RedSerije[]): { plan: SerijaPlana[] } | { g
     if (r.rijec) {
       if (kgTekst) serija.rijec = kgTekst.slice(0, 40);
     } else {
-      const kg = kgTekst ? parsirajBroj(kgTekst) : null;
+      const kg = kgTekst ? parsirajKg(kgTekst) : null;
       if (kgTekst && (kg === null || kg > 1000)) return { greska: `Serija ${i + 1}: kilaža nije ispravna.` };
       serija.kg = kg !== null && kg > 0 ? kg : null;
     }
@@ -49,9 +49,9 @@ export function planIzRedova(redovi: RedSerije[]): { plan: SerijaPlana[] } | { g
 }
 
 function pomaknut(kg: string, smjer: -1 | 1) {
-  const sada = kg.trim() ? (parsirajBroj(kg) ?? 0) : 0;
-  const nova = Math.round((sada + smjer * KORAK_KG) * 10) / 10;
-  return nova > 0 ? formatG(Math.min(1000, nova)) : "";
+  const sada = kg.trim() ? (parsirajKg(kg) ?? 0) : 0;
+  const nova = zaokruziKg(sada + smjer * KORAK_KG);
+  return nova > 0 ? formatKg(Math.min(1000, nova)) : "";
 }
 
 /**
@@ -117,7 +117,7 @@ export function SerijeUnos({
 }) {
   const sekunde = Boolean(redovi[0]?.sekunde);
   const rijec = Boolean(redovi[0]?.rijec);
-  const imaKg = !rijec && redovi.some((r) => (parsirajBroj(r.kg) ?? 0) > 0);
+  const imaKg = !rijec && redovi.some((r) => (parsirajKg(r.kg) ?? 0) > 0);
 
   function promijeni(i: number, polje: "ponavljanja" | "kg", vrijednost: string) {
     onPromjena(redovi.map((r, j) => (j === i ? { ...r, [polje]: vrijednost } : r)));
@@ -198,18 +198,18 @@ export function SerijeUnos({
           <span className="pt-1 text-xs text-tekst-2">Kilaža svim serijama:</span>
           <div className="grid grid-cols-3 gap-2">
             <button type="button" className={malaTipka} onClick={() => pomakni(-1)} disabled={!imaKg}>
-              − {formatG(KORAK_KG)} kg
+              − {formatKg(KORAK_KG)} kg
             </button>
             <button
               type="button"
               className={malaTipka}
-              onClick={() => maxKg != null && onPromjena(redovi.map((r) => ({ ...r, kg: formatG(maxKg) })))}
+              onClick={() => maxKg != null && onPromjena(redovi.map((r) => ({ ...r, kg: formatKg(maxKg) })))}
               disabled={maxKg == null}
             >
-              = max{maxKg != null ? ` ${formatG(maxKg)}` : ""}
+              = max{maxKg != null ? ` ${formatKg(maxKg)}` : ""}
             </button>
             <button type="button" className={malaTipka} onClick={() => pomakni(1)}>
-              + {formatG(KORAK_KG)} kg
+              + {formatKg(KORAK_KG)} kg
             </button>
           </div>
         </>

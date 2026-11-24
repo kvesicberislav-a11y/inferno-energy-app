@@ -5,7 +5,7 @@ import { Ploca } from "@/components/Ploca";
 import { Gumb, Polje, Poruka } from "@/components/ui";
 import { SerijeUnos, planIzRedova, redoviIzPlana, type RedSerije } from "@/components/trening/SerijeUnos";
 import { najvecaKg, opisKilaze } from "@/components/trening/useBazneIKilaze";
-import { formatG, parsirajBroj } from "@/lib/makroi";
+import { formatKg, parsirajKg, zaokruziKg } from "@/lib/makroi";
 import { KORAK_KG, sazmiSerije, serijePlana, type Kilaza, type PodaciBazne, type SerijaPlana, type Vjezba } from "@/lib/treninzi";
 
 export type PodaciPlanVjezbe = {
@@ -57,17 +57,17 @@ export function PlanVjezbaForma({
   const poSerijama = mjesto === "trening";
   const [serije, setSerije] = useState(pocetno?.serije ?? 3);
   const [ponavljanja, setPonavljanja] = useState(pocetno?.ponavljanja ?? "10");
-  const [kg, setKg] = useState(pocetno?.kg != null ? formatG(pocetno.kg) : "");
+  const [kg, setKg] = useState(pocetno?.kg != null ? formatKg(pocetno.kg) : "");
   const [redovi, setRedovi] = useState<RedSerije[]>(() => pocetniRedovi(pocetno));
   const [napomena, setNapomena] = useState(pocetno?.napomena ?? "");
   const [greska, setGreska] = useState<string | null>(null);
   const [salje, setSalje] = useState(false);
 
-  const kgBroj = kg.trim() ? parsirajBroj(kg) : null;
+  const kgBroj = kg.trim() ? parsirajKg(kg) : null;
   function pomakniKg(smjer: -1 | 1) {
     const sada = kgBroj ?? 0;
-    const nova = Math.round((sada + smjer * KORAK_KG) * 10) / 10;
-    setKg(nova > 0 ? formatG(Math.min(1000, nova)) : "");
+    const nova = zaokruziKg(sada + smjer * KORAK_KG);
+    setKg(nova > 0 ? formatKg(Math.min(1000, nova)) : "");
   }
 
   async function spremi(e: FormEvent) {
@@ -163,18 +163,18 @@ export function PlanVjezbaForma({
               </div>
               <div className="-mt-2 grid grid-cols-3 gap-2">
                 <button type="button" className={malaTipka} onClick={() => pomakniKg(-1)} disabled={!kgBroj}>
-                  − {formatG(KORAK_KG)} kg
+                  − {formatKg(KORAK_KG)} kg
                 </button>
                 <button
                   type="button"
                   className={malaTipka}
-                  onClick={() => kilaza?.maxKg != null && setKg(formatG(kilaza.maxKg))}
+                  onClick={() => kilaza?.maxKg != null && setKg(formatKg(kilaza.maxKg))}
                   disabled={kilaza?.maxKg == null}
                 >
-                  = max{kilaza?.maxKg != null ? ` ${formatG(kilaza.maxKg)}` : ""}
+                  = max{kilaza?.maxKg != null ? ` ${formatKg(kilaza.maxKg)}` : ""}
                 </button>
                 <button type="button" className={malaTipka} onClick={() => pomakniKg(1)}>
-                  + {formatG(KORAK_KG)} kg
+                  + {formatKg(KORAK_KG)} kg
                 </button>
               </div>
             </>

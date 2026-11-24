@@ -91,6 +91,23 @@ export function formatG(broj: number) {
     : zaokruzeno.toFixed(1).replace(".", ",");
 }
 
+/** Kilaža na vježbama: do dvije decimale (manji utezi 1,25 / 3,75 kg). "3,75" -> 3.75; prazno -> 0; neispravno -> null. */
+export function parsirajKg(tekst: string): number | null {
+  const t = tekst.trim().replace(",", ".");
+  if (t === "") return 0;
+  if (!/^\d+(\.\d+)?$/.test(t)) return null;
+  const broj = Number(t);
+  return Number.isFinite(broj) ? zaokruziKg(broj) : null;
+}
+
+/** Kilaža zaokružena na dvije decimale (npr. nakon + / − 2,5 kg). */
+export const zaokruziKg = (broj: number) => Math.round(broj * 100) / 100;
+
+/** 40 -> "40", 2.5 -> "2,5", 3.75 -> "3,75" */
+export function formatKg(broj: number) {
+  return String(zaokruziKg(broj)).replace(".", ",");
+}
+
 /** Zaokruženo na cijeli broj, s točkom za tisućice: 2150 -> "2.150" */
 export function formatKcal(broj: number) {
   return Math.round(broj).toLocaleString("hr-HR");

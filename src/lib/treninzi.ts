@@ -1,4 +1,4 @@
-import { formatG } from "@/lib/makroi";
+import { formatKg } from "@/lib/makroi";
 
 export const MISICNE_SKUPINE = [
   "Prsa",
@@ -284,7 +284,7 @@ export function opisOdradjene(s: OdradjenaSerija) {
   const t = `${s.ponavljanja}${s.sekunde ? " s" : ""}`;
   if (s.rijec) return `${t} × ${s.rijec}`;
   if (s.sekunde && !(s.kg > 0)) return t;
-  return `${t} × ${formatG(s.kg)} kg`;
+  return `${t} × ${formatKg(s.kg)} kg`;
 }
 
 /**
@@ -293,7 +293,7 @@ export function opisOdradjene(s: OdradjenaSerija) {
  */
 export function opisOdradjenih(serije: OdradjenaSerija[], sKg = true) {
   if (serije.some((s) => s.sekunde || s.rijec)) return serije.map(opisOdradjene).join(", ");
-  return `${serije.map((s) => `${s.ponavljanja}×${formatG(s.kg)}`).join(", ")}${sKg ? " kg" : ""}`;
+  return `${serije.map((s) => `${s.ponavljanja}×${formatKg(s.kg)}`).join(", ")}${sKg ? " kg" : ""}`;
 }
 
 /** Volumen serije (kg × ponavljanja); serije u sekundama se ne računaju. */
@@ -375,7 +375,7 @@ const crtica = (t: string) => t.replace(/\s*-\s*/g, "–");
 
 /** "4 × 8–10 · 60 kg", "3 × 60 s · 5 kg", "3 × 10 · žuta guma" */
 function opisJednakih(serije: number, ponavljanja: string, kg: number | null, sekunde?: boolean, rijec?: string) {
-  const opterecenje = rijec ? ` · ${rijec}` : kg !== null && kg > 0 ? ` · ${formatG(kg)} kg` : "";
+  const opterecenje = rijec ? ` · ${rijec}` : kg !== null && kg > 0 ? ` · ${formatKg(kg)} kg` : "";
   return `${serije} × ${crtica(ponavljanja)}${sekunde ? " s" : ""}${opterecenje}`;
 }
 
@@ -383,7 +383,7 @@ function opisJednakih(serije: number, ponavljanja: string, kg: number | null, se
 function opisJedneSerije(x: SerijaPlana) {
   const t = `${crtica(x.ponavljanja)}${x.sekunde ? " s" : ""}`;
   if (x.rijec) return `${t} × ${x.rijec}`;
-  return x.kg !== null && x.kg > 0 ? `${t} × ${formatG(x.kg)} kg` : t;
+  return x.kg !== null && x.kg > 0 ? `${t} × ${formatKg(x.kg)} kg` : t;
 }
 
 /** Serije po seriji: "12×40, 10×45, 8×50 kg"; ako su sve iste, kratko "3 × 10 · 50 kg". */
@@ -394,7 +394,7 @@ export function opisSerija(s: SerijaPlana[]) {
   // sa sekundama ili riječju svaka serija posebno
   if (s.some((x) => x.sekunde || x.rijec)) return s.map(opisJedneSerije).join(", ");
   if (s.some((x) => x.kg !== null && x.kg > 0)) {
-    return `${s.map((x) => (x.kg !== null && x.kg > 0 ? `${crtica(x.ponavljanja)}×${formatG(x.kg)}` : crtica(x.ponavljanja))).join(", ")} kg`;
+    return `${s.map((x) => (x.kg !== null && x.kg > 0 ? `${crtica(x.ponavljanja)}×${formatKg(x.kg)}` : crtica(x.ponavljanja))).join(", ")} kg`;
   }
   return `${s.length} ser.: ${s.map((x) => crtica(x.ponavljanja)).join(", ")}`;
 }

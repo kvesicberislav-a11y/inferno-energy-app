@@ -142,7 +142,7 @@ export async function napraviExcel(p: PodaciIzvoza): Promise<Blob> {
             s.vjezba,
             s.redni,
             s.ponavljanja,
-            broj(s.kg),
+            broj(s.kg, 2),
             broj(volumenSerije(s), 0),
             s.sekunde ? "da" : null,
             s.rijec,
@@ -159,11 +159,11 @@ export async function napraviExcel(p: PodaciIzvoza): Promise<Blob> {
       v.dani.map((d) => [
         v.vjezba,
         datum(d.datum),
-        broj(d.kg),
+        broj(d.kg, 2),
         d.ponavljanja,
         d.serija,
         broj(d.volumen, 0),
-        v.poKg && d.kg > 0 ? broj(d.kg - v.prvi.kg) : null,
+        v.poKg && d.kg > 0 ? broj(d.kg - v.prvi.kg, 2) : null,
       ]),
     ),
   ];
@@ -172,7 +172,7 @@ export async function napraviExcel(p: PodaciIzvoza): Promise<Blob> {
   const poMjesecima: Redak[] = [
     naslovi("Vježba", "Mjesec", "Najteža serija (kg)", "Ponavljanja", "Prosjek najtežih serija (kg)", "Treninga"),
     ...napredak.flatMap((v) =>
-      v.mjeseci.map((m) => [v.vjezba, nazivMjeseca(m.mjesec), broj(m.najteza.kg), m.najteza.ponavljanja, broj(m.prosjekKg), m.treninga]),
+      v.mjeseci.map((m) => [v.vjezba, nazivMjeseca(m.mjesec), broj(m.najteza.kg, 2), m.najteza.ponavljanja, broj(m.prosjekKg, 2), m.treninga]),
     ),
   ];
 
