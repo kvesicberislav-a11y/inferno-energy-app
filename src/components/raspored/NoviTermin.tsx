@@ -25,10 +25,18 @@ const brojTermina = (n: number) => (n === 1 ? "termin" : "termina");
  */
 export function NoviTermin({
   termini: pocetni,
+  trajanje: pocetnoTrajanje = 60,
+  stalni: pocetnoStalni = false,
+  iskljuci = [],
   onGotovo,
   onZatvori,
 }: {
   termini: MjestoTermina[];
+  /** „+ Osoba” u postojećem terminu: isto trajanje i ponavljanje kao taj termin */
+  trajanje?: number;
+  stalni?: boolean;
+  /** klijenti koji su već u tom terminu (ne nude se) */
+  iskljuci?: string[];
   onGotovo: (poruka: string) => void;
   onZatvori: () => void;
 }) {
@@ -37,8 +45,8 @@ export function NoviTermin({
   const [redovi, setRedovi] = useState<MjestoTermina[]>(() =>
     [...pocetni].sort((a, b) => `${a.datum} ${a.vrijeme}`.localeCompare(`${b.datum} ${b.vrijeme}`)),
   );
-  const [trajanje, setTrajanje] = useState(60);
-  const [stalni, setStalni] = useState(false);
+  const [trajanje, setTrajanje] = useState(pocetnoTrajanje);
+  const [stalni, setStalni] = useState(pocetnoStalni);
   const [upit, setUpit] = useState("");
   const [greska, setGreska] = useState<string | null>(null);
   const [radi, setRadi] = useState(false);
@@ -133,7 +141,8 @@ export function NoviTermin({
   }
 
   const u = upit.trim().toLowerCase();
-  const prikazani = (klijenti ?? []).filter((k) => !u || k.ime.toLowerCase().includes(u) || odabrani.includes(k.id));
+  const ponudjeni = (klijenti ?? []).filter((k) => !iskljuci.includes(k.id));
+  const prikazani = ponudjeni.filter((k) => !u || k.ime.toLowerCase().includes(u) || odabrani.includes(k.id));
   const jedan = redovi.length === 1;
   const ukupno = jedinstveni.length;
 
@@ -235,7 +244,7 @@ export function NoviTermin({
           <span className="text-sm text-tekst-2">
             Klijenti {odabrani.length > 0 ? `(${odabrani.length})` : "– može ih biti više"}
           </span>
-          {klijenti && klijenti.length > 12 && (
+          {ponudjeni.length > 12 && (
             <input
               type="search"
               aria-label="Traži klijenta"
@@ -247,8 +256,8 @@ export function NoviTermin({
           )}
           {klijenti === null ? (
             <p className="text-sm text-tekst-2">Učitavam…</p>
-          ) : klijenti.length === 0 ? (
-            <Poruka>Nema klijenata označenih kao „uživo”.</Poruka>
+          ) : ponudjeni.length === 0 ? (
+            <Poruka>{klijenti.length === 0 ? "Nema klijenata označenih kao „uživo”." : "Svi klijenti „uživo” već su u ovom terminu."}</Poruka>
           ) : (
             <div className="flex flex-wrap gap-2">
               {prikazani.map((k) => (

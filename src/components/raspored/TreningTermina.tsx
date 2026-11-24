@@ -8,13 +8,16 @@ import { Ploca } from "@/components/Ploca";
 import { StalnaNapomena } from "@/components/trening/StalnaNapomena";
 import { kratkoMaxIliPolazno, useBazneIKilaze } from "@/components/trening/useBazneIKilaze";
 import { Gumb, Poruka, Ucitavanje } from "@/components/ui";
-import { danMjesec, danasZagreb } from "@/lib/datum";
+import { danMjesec, danasZagreb, dodajDane, ponedjeljak } from "@/lib/datum";
 import { prevediGresku } from "@/lib/greske";
 import {
   SELECT_TRENINGA,
+  SELECT_VJEZBI_TJEDNA,
   nazivTreninga,
   serijeVjezbe,
   uTreningKalendara,
+  vjezbaGotova,
+  vjezbeUTjednu,
   type TreningKalendara,
   type TreningVjezba,
 } from "@/lib/kalendar";
@@ -36,6 +39,7 @@ export function TreningTermina({
   ime,
   onPromjena,
   onTermin,
+  onOsoba,
   onZatvori,
 }: {
   termin: Termin;
@@ -44,6 +48,8 @@ export function TreningTermina({
   onPromjena: () => void;
   /** otvori radnje termina (pomakni / obriši) */
   onTermin: () => void;
+  /** dodaj još jednog klijenta u isti termin (isti dan, vrijeme i trajanje) */
+  onOsoba: () => void;
   onZatvori: () => void;
 }) {
   const klijentId = termin.klijentId;
@@ -83,6 +89,27 @@ export function TreningTermina({
       aktivno = false;
     };
   }, [klijentId, datum, kljuc, verzija]);
+
+  // vježbe s drugih treninga istog tjedna (pon–ned), da se pri slaganju plana vidi što je već rađeno
+  const [tjedan, setTjedan] = useState<{ kljuc: string; vjezbe: Map<string, string> } | null>(null);
+  useEffect(() => {
+    let aktivno = true;
+    const pon = ponedjeljak(datum);
+    supabase()
+      .from("treninzi")
+      .select(SELECT_VJEZBI_TJEDNA)
+      .eq("klijent_id", klijentId)
+      .eq("nije_dosao", false)
+      .gte("datum", pon)
+      .lte("datum", dodajDane(pon, 6))
+      .neq("datum", datum)
+      .then(({ data }) => {
+        if (aktivno && data) setTjedan({ kljuc, vjezbe: vjezbeUTjednu(data) });
+      });
+    return () => {
+      aktivno = false;
+    };
+  }, [klijentId, datum, kljuc]);
 
   const sb = supabase();
   const trening = stanje?.kljuc === kljuc ? stanje.trening : null;
@@ -250,9 +277,14 @@ export function TreningTermina({
               {trening?.skupine.length ? ` · ${nazivTreninga(trening)}` : ""}
             </p>
           </div>
-          <Gumb varijanta="sporedni" malen onClick={onTermin}>
-            Termin ›
-          </Gumb>
+          <div className="flex shrink-0 gap-2">
+            <Gumb varijanta="sporedni" malen onClick={onOsoba}>
+              + Osoba
+            </Gumb>
+            <Gumb varijanta="sporedni" malen onClick={onTermin}>
+              Termin ›
+            </Gumb>
+          </div>
         </div>
 
         <div className="grid grid-cols-2 gap-1 rounded-2xl border border-rub bg-povrsina-2 p-1" role="group" aria-label="Način">
@@ -319,7 +351,7 @@ export function TreningTermina({
                 <p className="text-xs font-bold tracking-wide text-tekst-2 uppercase">{skupina}</p>
                 {vjezbe.map((tv) => {
                   const upisane = serijeVjezbe(trening!, tv.vjezba_id);
-                  const gotovo = upisane.length >= tv.serije;
+                  const gotovo = vjezbaGotova(tv, upisane.length);
                   const max = kratkoMaxIliPolazno(kilaze.get(tv.vjezba_id), podaci.get(tv.vjezba_id));
                   const stalna = podaci.get(tv.vjezba_id)?.napomena;
                   return (
@@ -349,7 +381,11 @@ export function TreningTermina({
                             gotovo ? "bg-emerald-500/20 text-emerald-300" : "bg-povrsina text-tekst-2"
                           }`}
                         >
-                          {gotovo ? "✓" : `${upisane.length}/${tv.serije}`}
+                          {gotovo
+                            ? upisane.length < tv.serije
+                              ? `✓ ${upisane.length}/${tv.serije}`
+                              : "✓"
+                            : `${upisane.length}/${tv.serije}`}
                         </span>
                       ) : (
                         <span className="shrink-0 text-xl text-tekst-2" aria-hidden="true">
@@ -419,6 +455,7 @@ export function TreningTermina({
           kilaze={kilaze}
           polazno={podaci}
           vecUDanu={trening?.vjezbe.map((v) => v.vjezba_id) ?? []}
+          uTjednu={tjedan?.kljuc === kljuc ? tjedan.vjezbe : undefined}
           onDodaj={dodajVjezbe}
           onZatvori={() => setDodavanje(null)}
         />

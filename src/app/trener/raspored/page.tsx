@@ -18,7 +18,7 @@ import { prevediGresku } from "@/lib/greske";
 import { imeZaDatoteku } from "@/lib/izvoz/podaci";
 import { mozeDijeliti, podijeli, preuzmi } from "@/lib/izvoz/spremi";
 import { kljucTreninga } from "@/lib/kalendar";
-import { opisTermina, type Termin } from "@/lib/raspored";
+import { jePomaknut, opisTermina, type Termin } from "@/lib/raspored";
 import { supabase } from "@/lib/supabase/client";
 import { MISICNE_SKUPINE, uSkupinu } from "@/lib/treninzi";
 
@@ -80,6 +80,8 @@ function TjedniRaspored() {
   const [trening, setTrening] = useState<Termin | null>(null);
   const [radnje, setRadnje] = useState<Termin | null>(null);
   const [novi, setNovi] = useState<MjestoTermina[] | null>(null);
+  // „+ Osoba” u postojećem terminu: novi termin s istim danom, vremenom, trajanjem i ponavljanjem
+  const [uIstiTermin, setUIstiTermin] = useState<Termin | null>(null);
   // računalo: Ctrl + klik na prazna polja označi više termina, pa se dodaju odjednom
   const [odabir, setOdabir] = useState<MjestoTermina[]>([]);
   // računalo: Ctrl + klik na postojeće termine označi ih, pa se brišu odjednom
@@ -321,6 +323,7 @@ function TjedniRaspored() {
     setRadnje(null);
     setTrening(null);
     setNovi(null);
+    setUIstiTermin(null);
     setOdabir([]);
     setZaBrisanje([]);
     setKopiranjeRasporeda(false);
@@ -597,7 +600,24 @@ function TjedniRaspored() {
             setRadnje(trening);
             setTrening(null);
           }}
+          onOsoba={() => {
+            setUIstiTermin(trening);
+            setTrening(null);
+          }}
           onZatvori={() => setTrening(null)}
+        />
+      )}
+      {uIstiTermin && (
+        <NoviTermin
+          termini={[{ datum: uIstiTermin.datum, vrijeme: uIstiTermin.vrijeme }]}
+          trajanje={uIstiTermin.trajanje}
+          stalni={Boolean(uIstiTermin.pravilo) && !jePomaknut(uIstiTermin)}
+          iskljuci={(raspored?.termini ?? [uIstiTermin])
+            .filter((t) => t.datum === uIstiTermin.datum && t.vrijeme === uIstiTermin.vrijeme && !t.otkazan)
+            .map((t) => t.klijentId)
+            .concat(uIstiTermin.klijentId)}
+          onGotovo={gotovo}
+          onZatvori={() => setUIstiTermin(null)}
         />
       )}
       {radnje && raspored && (

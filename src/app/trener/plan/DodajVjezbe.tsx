@@ -18,6 +18,7 @@ export function DodajVjezbe({
   kilaze,
   polazno,
   vecUDanu,
+  uTjednu,
   onDodaj,
   onZatvori,
 }: {
@@ -28,6 +29,8 @@ export function DodajVjezbe({
   /** polazna kilaža iz baznih vježbi (dok nema odrađenih serija) */
   polazno?: Map<string, PodaciBazne>;
   vecUDanu: string[];
+  /** trening iz kalendara: vježbe koje klijent ima na drugim treninzima istog tjedna (id → "pon, sri") */
+  uTjednu?: Map<string, string>;
   onDodaj: (vjezbe: Vjezba[]) => Promise<string | null>;
   onZatvori: () => void;
 }) {
@@ -62,6 +65,7 @@ export function DodajVjezbe({
   const red = (v: Vjezba) => {
     const redni = odabrane.findIndex((x) => x.id === v.id);
     const vec = vecUDanu.includes(v.id);
+    const tjedan = uTjednu?.get(v.id);
     const max = kratkoMaxIliPolazno(kilaze.get(v.id), polazno?.get(v.id));
     return (
       <button
@@ -87,6 +91,7 @@ export function DodajVjezbe({
             {vec ? " · već je u ovom treningu" : ""}
             {v.vlasnik_id ? " · njegova vježba" : ""}
           </span>
+          {tjedan && <span className="block text-sm font-semibold text-amber-300">↻ već ovaj tjedan · {tjedan}</span>}
         </span>
       </button>
     );

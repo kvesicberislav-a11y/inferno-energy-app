@@ -5,7 +5,7 @@ import { Ploca } from "@/components/Ploca";
 import { Gumb, Poruka } from "@/components/ui";
 import { ZaglavljeSerija } from "@/components/trening/SerijeUnos";
 import { opisKilaze } from "@/components/trening/useBazneIKilaze";
-import { predlozakPonavljanja, type TreningVjezba } from "@/lib/kalendar";
+import { predlozakPonavljanja, rijecSerija, type TreningVjezba } from "@/lib/kalendar";
 import { prevediGresku } from "@/lib/greske";
 import { formatG, parsirajBroj } from "@/lib/makroi";
 import { supabase } from "@/lib/supabase/client";
@@ -73,6 +73,20 @@ export function UpisSerija({
   const [redovi, setRedovi] = useState<Red[]>(() => pocetniRedovi(tv, spremljene, pocetniNacin(tv, spremljene)));
   const [radi, setRadi] = useState<number | null>(null);
   const [greska, setGreska] = useState<string | null>(null);
+  const [zavrsena, setZavrsena] = useState(tv.zavrsena);
+  const [oznacava, setOznacava] = useState(false);
+
+  /** Klijent je odradio manje serija nego u planu: trener potvrđuje vježbu kao gotovu (plan ostaje zapisan). */
+  async function oznaciGotovo(da: boolean) {
+    setGreska(null);
+    setOznacava(true);
+    const { error } = await supabase().from("trening_vjezbe").update({ zavrsena: da }).eq("id", tv.id);
+    setOznacava(false);
+    if (error) return setGreska(prevediGresku(error.message));
+    setZavrsena(da);
+    onPromjena();
+    if (da) onZatvori();
+  }
 
   function promijeni(i: number, polje: "ponavljanja" | "kg", vrijednost: string) {
     setRedovi((rr) => rr.map((r, j) => (j === i ? { ...r, [polje]: vrijednost } : r)));
@@ -258,8 +272,28 @@ export function UpisSerija({
         </div>
 
         {greska && <Poruka tip="greska">{greska}</Poruka>}
-        <Gumb type="button" onClick={onZatvori}>
-          Gotovo
+        {spremljenih > 0 && spremljenih < tv.serije && !zavrsena && (
+          <Gumb type="button" onClick={() => oznaciGotovo(true)} disabled={oznacava || radi !== null}>
+            {oznacava ? "Spremam…" : `✓ Gotovo – ${spremljenih} od ${tv.serije} ${rijecSerija(tv.serije)}`}
+          </Gumb>
+        )}
+        {spremljenih > 0 && spremljenih < tv.serije && zavrsena && (
+          <div className="flex items-center justify-between gap-3 rounded-2xl bg-emerald-500/15 px-4 py-3 text-sm text-emerald-200">
+            <span>
+              ✓ Vježba je gotova – {spremljenih} od {tv.serije} {rijecSerija(tv.serije)}
+            </span>
+            <button
+              type="button"
+              disabled={oznacava}
+              onClick={() => oznaciGotovo(false)}
+              className="shrink-0 font-semibold text-tekst-2 underline underline-offset-2 disabled:opacity-50"
+            >
+              {oznacava ? "…" : "Poništi"}
+            </button>
+          </div>
+        )}
+        <Gumb type="button" varijanta="sporedni" onClick={onZatvori}>
+          Zatvori
         </Gumb>
       </div>
     </Ploca>
