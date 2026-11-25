@@ -22,6 +22,20 @@ const GLAVNA_ADRESA = "infernoenergy.hr";
 // infernoenergy.hr na stari server. Vratiti "inferno-energy-app.kvesic-berislav.workers.dev" u popis nakon 4. 11. 2026.
 const PREUSMJERI = new Set(["www.infernoenergy.hr"]);
 
+/**
+ * Stranice (HTML i podaci za prelazak između stranica): preglednik prije svakog otvaranja pita
+ * ima li nova verzija. OpenNext šalje "s-maxage, stale-while-revalidate=30 dana", pa je preglednik
+ * nakon objave prvi put pokazivao staru spremljenu verziju (npr. bez novih gumba).
+ * JS/CSS datoteke (/_next/static, imena s otiskom sadržaja) i dalje se spremaju trajno.
+ */
+function svjezaStranica(odgovor) {
+  const vrsta = odgovor.headers.get("content-type") || "";
+  if (!vrsta.includes("text/html") && !vrsta.includes("text/x-component")) return odgovor;
+  const novi = new Response(odgovor.body, odgovor);
+  novi.headers.set("Cache-Control", "no-cache");
+  return novi;
+}
+
 const worker = {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
@@ -47,7 +61,7 @@ const worker = {
       });
       return Response.json(izvjestaj, { headers: { "Cache-Control": "no-store" } });
     }
-    return aplikacija.fetch(request, env, ctx);
+    return svjezaStranica(await aplikacija.fetch(request, env, ctx));
   },
 
   async scheduled(_dogadaj, env, ctx) {
