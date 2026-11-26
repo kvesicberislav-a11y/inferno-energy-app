@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/components/AuthProvider";
+import { NovaVerzija } from "@/components/NovaVerzija";
 import { RegistracijaSW } from "@/components/RegistracijaSW";
 
 const inter = Inter({
@@ -34,6 +35,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     <html lang="hr" className={`${inter.variable} h-full antialiased`}>
       <body className="flex min-h-dvh flex-col bg-pozadina font-sans text-tekst">
         <AuthProvider>{children}</AuthProvider>
+        <NovaVerzija />
         <RegistracijaSW />
       </body>
     </html>

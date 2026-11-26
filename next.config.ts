@@ -1,6 +1,19 @@
+import { readFileSync } from "node:fs";
 import type { NextConfig } from "next";
 
+/** Oznaka verzije iz public/verzija.json (nastaje pri izgradnji, scripts/verzija.mjs); u razvoju "dev". */
+function oznakaVerzije() {
+  try {
+    const { verzija } = JSON.parse(readFileSync("public/verzija.json", "utf8"));
+    return typeof verzija === "string" && process.env.NODE_ENV === "production" ? verzija : "dev";
+  } catch {
+    return "dev";
+  }
+}
+
 const nextConfig: NextConfig = {
+  // ugrađuje se u aplikaciju: oznaka na dnu stranice i provjera nove verzije (NovaVerzija.tsx)
+  env: { VERZIJA_APLIKACIJE: oznakaVerzije() },
   // Cache Components je isključen: na Cloudflare Workers zapinje
   // ("Worker's code had hung"), a našim stranicama nije potreban.
   cacheComponents: false,

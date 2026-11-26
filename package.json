@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "prebuild": "node scripts/zxing-wasm.mjs",
+    "prebuild": "node scripts/zxing-wasm.mjs && node scripts/verzija.mjs",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",

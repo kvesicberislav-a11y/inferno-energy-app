@@ -42,6 +42,8 @@ yarn-error.log*
 
 # čitač barkodova – kopira se iz node_modules prije builda
 /public/zxing/
+# oznaka verzije – nastaje pri svakoj izgradnji (scripts/verzija.mjs)
+/public/verzija.json
 
 # cloudflare / opennext
 /.open-next/
